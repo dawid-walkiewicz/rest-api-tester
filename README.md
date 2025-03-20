@@ -23,6 +23,5 @@ test "Tworzenie użytkownika" {
         }
     }
     expect status 201
-    set newUserId = extract(json, "$.id")
 }
 ```
