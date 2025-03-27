@@ -1,7 +1,9 @@
 parser grammar testerParser;
 options { tokenVocab=testerLexer; }
 
-program : (testCase)+ ;
+program : (testCase | envDeclaration)* ;
+
+envDeclaration : ENV ID '=' value ;
 
 testCase : TEST STRING (optionsBlock)? '{' (statement)* '}' ;
 
@@ -21,7 +23,7 @@ request
 
 method : GET | POST | PUT | DELETE | HEAD ;
 
-endpoint : STRING ;
+endpoint : STRING | VAR_REF ;
 
 block : '{' (blockItem)* '}' ;
 blockItem
@@ -30,7 +32,7 @@ blockItem
     ;
 
 headersBlock : HEADERS '{' (header)* '}' ;
-header : STRING ':' STRING ;
+header : STRING ':' (STRING | VAR_REF) ;
 
 bodyBlock : BODY obj ;
 
@@ -55,14 +57,17 @@ value
     | arr
     | TRUE
     | FALSE
-    | NULL
+    | VAR_REF
     ;
 
 assertion : EXPECT assertionExpr ;
 assertionExpr
-    : STATUS NUMBER
-    | JSON jsonPath ('==' | '!=') value
+    : STATUS comparison NUMBER
+    | jsonPath comparison value
     ;
-jsonPath : STRING ;
+
+comparison : EQ | NEQ | LT | GT | LTE | GTE ;
+
+jsonPath : JSON ('{' (STRING | NUMBER) '}' | DOT ID)+ ;
 
 assignment : ID '=' value ;

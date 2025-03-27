@@ -22,8 +22,11 @@ FALSE : 'false' ;
 EQ : '==' ;
 NEQ : '!=' ;
 
+
+ENV : 'ENV';
+VAR_REF : '@{' ~[}]* '}';
 JSON : 'json' ;
-NULL : 'null' ;
+DOT : '.' ;
 
 LCURLY : '{' ;
 RCURLY : '}' ;
