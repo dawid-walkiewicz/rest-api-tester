@@ -5,6 +5,7 @@ GET : 'GET' ;
 POST : 'POST' ;
 PUT : 'PUT' ;
 DELETE : 'DELETE' ;
+HEAD: 'HEAD';
 
 OPTIONS : 'options' ;
 
@@ -12,7 +13,6 @@ HEADERS : 'headers' ;
 BODY : 'body' ;
 
 EXPECT : 'expect' ;
-SET : 'set' ;
 ASSIGN : '=' ;
 
 STATUS : 'status' ;
