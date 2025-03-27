@@ -69,6 +69,6 @@ assertionExpr
 
 comparison : EQ | NEQ | LT | GT | LTE | GTE ;
 
-jsonPath : JSON ('{' (STRING | NUMBER) '}' | DOT ID)+ ;
+jsonPath : JSON ('{' (STRING | NUMBER) '}' | '[' ID ']')+ ;
 
 assignment : VAR ID '=' value ;
