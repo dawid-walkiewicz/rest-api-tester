@@ -42,6 +42,9 @@ GET '@{API_URL}/login' {
 `
 
 ## Odpowiedź
+
+Zgodnie z https://developer.mozilla.org/en-US/docs/Web/API/Response
+
 - Response - json
 
 - Response.body - json
