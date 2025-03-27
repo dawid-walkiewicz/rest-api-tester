@@ -70,4 +70,4 @@ comparison : EQ | NEQ | LT | GT | LTE | GTE ;
 
 jsonPath : JSON ('{' (STRING | NUMBER) '}' | DOT ID)+ ;
 
-assignment : ID '=' value ;
+assignment : VAR ID '=' value ;

@@ -21,9 +21,13 @@ TRUE : 'true' ;
 FALSE : 'false' ;
 EQ : '==' ;
 NEQ : '!=' ;
-
+LT : '<' ;
+GT : '>' ;
+LTE : '<=' ;
+GTE : '>=' ;
 
 ENV : 'ENV';
+VAR: 'var';
 VAR_REF : '@{' ~[}]* '}';
 JSON : 'json' ;
 DOT : '.' ;
