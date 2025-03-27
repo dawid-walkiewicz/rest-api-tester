@@ -23,7 +23,7 @@ request
 
 method : GET | POST | PUT | DELETE | HEAD ;
 
-endpoint : STRING | VAR_REF ;
+endpoint : STRING | VAR_REF | ENV_REF;
 
 block : '{' (blockItem)* '}' ;
 blockItem
@@ -32,7 +32,7 @@ blockItem
     ;
 
 headersBlock : HEADERS '{' (header)* '}' ;
-header : STRING ':' (STRING | VAR_REF) ;
+header : STRING ':' (STRING | VAR_REF | ENV_REF) ;
 
 bodyBlock : BODY obj ;
 
@@ -58,6 +58,7 @@ value
     | TRUE
     | FALSE
     | VAR_REF
+    | ENV_REF
     ;
 
 assertion : EXPECT assertionExpr ;

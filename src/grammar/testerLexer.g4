@@ -28,7 +28,10 @@ GTE : '>=' ;
 
 ENV : 'ENV';
 VAR: 'var';
-VAR_REF : '@{' ~[}]* '}';
+ENV_REF : '"@{' ID '}"' ;
+VAR_REF : '"${' ID '}"' ;
+
+
 JSON : 'json' ;
 DOT : '.' ;
 
