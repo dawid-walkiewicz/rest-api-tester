@@ -19,7 +19,7 @@ statement
 request
     : method endpoint (block)? ;
 
-method : GET | POST | PUT | DELETE ;
+method : GET | POST | PUT | DELETE | HEAD ;
 
 endpoint : STRING ;
 
@@ -65,4 +65,4 @@ assertionExpr
     ;
 jsonPath : STRING ;
 
-assignment : SET ID '=' value ;
+assignment : ID '=' value ;
