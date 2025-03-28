@@ -1,59 +1,99 @@
 # Dokumentacja
 
 ## Asercja
+Składnia asercji jest następująca:
+
 `expect <wyrażenie logiczne>`
 
-`expect status == 200`
-`expect json[id] == „123”`
-`expect json[username] == "JanKowalski"`
+Dostępne są następujące operatory porównania:
+- `==` - równe
+- `!=` - różne
+- `>` - większe
+- `<` - mniejsze
+- `>=` - większe lub równe
+- `<=` - mniejsze lub równe
+
+Przykłady asercji:
+```
+expect status == 200
+expect body[user][id] == „admin”
+expect headers[Content-Type] != "text/html"
+```
 
 ## Deklarowanie zmiennych
-### Zmienne
-- Typy prymitywne/lokalne
-  - number
+### Typy
+- number
 
-  `var repeatNumber = 5`
-  - str
+`var repeatNumber = 5`
 
-  `var userName = ”admin”`
+- str
+
+`var userName = ”admin”`
 
 - boolean
-  `var isEmployee = false`
 
-- Listy
+`var isEmployee = false`
+
+- list
 
 `var items = [item1, item2, item3]`
 
-- Zmienne środowiskowe / globalne / stałe
+- object
 
-`ENV API_URL = “myApi.com/api/v1”`
-`ENV PASSWORD = “1qaz@WSX”`
+`var user = {name: "Jan", surname: "Kowalski"}`
 
+### Zmienne
+- Zmienne lokalne
+  - Deklaracja i Inicjalizacja
+  
+  `var repeatNumber = 5`
 
-Po zadeklarowaniu zmiennej środowiskowej można odwołać się do niej w dowolnym miejscu w skrypcie
+  - Przypisanie wartości
 
-`
-GET '@{API_URL}/login' {
-    headers: {
-        "Authorization": "Bearer @{PASSWORD}"
-    }
-    ...
-}
-`
+  `userName = ”admin”`
+
+  - Interpolacja
+
+  `"username": "${userName}"`
+
+  - Zmienne lokalne definiować można w dowolnym miejscu w teście i są dostępne tylko w obrębie danego testu
+
+- Zmienne środowiskowe / globalne
+
+  - Deklaracja i Inicjalizacja
+  
+  `ENV PASSWORD = “pass”`
+
+  - Interpolacja
+    
+  `"Authorization": "Bearer @{PASSWORD}"`
+
+  - Do zadeklarowanej zmiennej środowiskowej można odwołać się w dowolnym miejscu w skrypcie
+
+### Pobieranie wartości listy lub obiektu
+Pobieranie wartości z listy lub obiektu odbywa się za pomocą operatora "[]".
+
+```
+var items = [item1, item2, item3]
+var user = {name: "Jan", surname: "Kowalski"}
+
+items[0]
+user[name]
+```
 
 ## Odpowiedź
 
-Zgodnie z https://developer.mozilla.org/en-US/docs/Web/API/Response
+Do poszczególnych elementów odpowiedzi można odwołać się za pomocą:
 
-- Response - json
+- response (typ json) - cała odpowiedź
 
-- Response.body - json
+- body (typ json) - ciało odpowiedzi
 
-- Response.headers -json
+- headers (typ json) - nagłówki odpowiedzi
 
-- Response.status - number
+- status (typ number) - status odpowiedzi
 
-- Response.type
+- type (typ str) - typ odpowiedzi
 
 
 ## Tworzenie testów
@@ -61,18 +101,68 @@ Zgodnie z https://developer.mozilla.org/en-US/docs/Web/API/Response
 ```test <nazwa> {
 METODA_HTTP ”/api/resource” {
   }
-}`
-
-`test "Tworzenie użytkownika" {
-POST "/api/users" {
-  headers {
-    "Content-Type": "application/json"
-  }
-  body {
-    "username": "NowyUser",
-    "email": "nowy@przyklad.com"
-  }
 }
-expect status == 201
+```
+
+```
+// Globalna zmienna środowiskowa
+ENV PASSWORD = "securePass123"
+
+test "User Login" options { repeat: 3, timeout: 5000 } {
+    // Deklaracja zmiennych lokalnych
+    var username = "admin"
+    var password = "securePass123"
+    
+    // Wysłanie żądania POST z ciałem JSON
+    POST "/api/login" {
+        "headers": {
+            "Content-Type": "application/json"
+        },
+        "body": {
+            "username": "${username}",
+            "password": "${password}"
+        }
+    }
+    
+    // Asercje
+    expect status == 200
+    expect body[success] == true
+    expect body[token] != ""
+}
+
+test "Get User Details" {
+    // Wysłanie żądania GET z nagłówkiem autoryzacyjnym
+    GET "/api/users/42" {
+        "headers": {
+            "Authorization": "Bearer @{PASSWORD}"
+        }
+    }
+    
+    // Asercje
+    expect status == 200
+    expect body[user][id] == 42
+    expect body[user][role] == "admin"
+    
+    // Przypisanie wartości z odpowiedzi do zmiennej lokalnej
+    var userName = body[user][name]
+    expect userName == "John"
+}
+
+test "Update User Profile" options { timeout: 3000 } {
+    // Wysłanie żądania PUT z ciałem JSON
+    PUT "/api/users/42" {
+        "headers": {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer @{PASSWORD}"
+        },
+        "body": {
+            "name": "John",
+            "surname": "Doe"
+        }
+    }
+    
+    // Asercje
+    expect status == 200
+    expect body[user][surname] == "Doe"
 }
 ```

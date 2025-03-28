@@ -5,7 +5,7 @@ program : (testCase | envDeclaration)* ;
 
 envDeclaration : ENV ID '=' value ;
 
-testCase : TEST STRING (optionsBlock)? '{' (statement)* '}' ;
+testCase : TEST STRING (optionsBlock)? '{' statement* '}' ;
 
 optionsBlock : 'options' optionsList ;
 optionsList : '{' option (',' option)* '}' ;
@@ -15,26 +15,20 @@ optionValue : NUMBER | STRING ;
 statement
     : request
     | assertion
-    | assignment
+    | varDeclaration
+    | varReassignment
     ;
 
+varDeclaration : VAR ID '=' value ;
+
+varReassignment : ID '=' value ;
+
 request
-    : method endpoint (block)? ;
+    : method endpoint (obj)? ;
 
 method : GET | POST | PUT | DELETE | HEAD ;
 
 endpoint : STRING | VAR_REF | ENV_REF;
-
-block : '{' (blockItem)* '}' ;
-blockItem
-    : headersBlock
-    | bodyBlock
-    ;
-
-headersBlock : HEADERS '{' (header)* '}' ;
-header : STRING ':' (STRING | VAR_REF | ENV_REF) ;
-
-bodyBlock : BODY obj ;
 
 obj
     : '{' pair (',' pair)* '}'
@@ -45,13 +39,20 @@ pair
     : STRING ':' value
     ;
 
+key
+    : STRING
+    | NUMBER
+    | ID
+    ;
+
 arr
     : '[' value (',' value)* ']'
     | '[' ']'
     ;
 
 value
-    : STRING
+    : path
+    | STRING
     | NUMBER
     | obj
     | arr
@@ -62,13 +63,20 @@ value
     ;
 
 assertion : EXPECT assertionExpr ;
+
 assertionExpr
     : STATUS comparison NUMBER
-    | jsonPath comparison value
+    | path comparison value
     ;
 
 comparison : EQ | NEQ | LT | GT | LTE | GTE ;
 
-jsonPath : JSON ('{' (STRING | NUMBER) '}' | '[' ID ']')+ ;
+rootElement : RESPONSE | BODY | HEADERS | STATUS | TYPE | ID ;
 
-assignment : VAR ID '=' value ;
+bracketAccess
+    : LBRACK property RBRACK
+    ;
+
+property : ID | STRING | NUMBER ;
+
+path : rootElement bracketAccess* ;

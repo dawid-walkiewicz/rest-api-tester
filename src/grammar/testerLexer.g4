@@ -9,31 +9,17 @@ HEAD: 'HEAD';
 
 OPTIONS : 'options' ;
 
-HEADERS : 'headers' ;
-BODY : 'body' ;
-
 EXPECT : 'expect' ;
+ENV : 'ENV' ;
+VAR : 'var' ;
+
 ASSIGN : '=' ;
-
-STATUS : 'status' ;
-
-TRUE : 'true' ;
-FALSE : 'false' ;
 EQ : '==' ;
 NEQ : '!=' ;
 LT : '<' ;
 GT : '>' ;
 LTE : '<=' ;
 GTE : '>=' ;
-
-ENV : 'ENV';
-VAR: 'var';
-ENV_REF : '"@{' ID '}"' ;
-VAR_REF : '"${' ID '}"' ;
-
-
-JSON : 'json' ;
-DOT : '.' ;
 
 LCURLY : '{' ;
 RCURLY : '}' ;
@@ -43,8 +29,22 @@ LBRACK : '[' ;
 RBRACK : ']' ;
 COLON : ':' ;
 COMMA : ',' ;
+DOT : '.' ;
+
+TRUE : 'true' ;
+FALSE : 'false' ;
+
+ENV_REF : '"@{' ID '}"' ;
+VAR_REF : '"${' ID '}"' ;
+
+RESPONSE : 'response' ;
+BODY : 'body' ;
+HEADERS : 'headers' ;
+STATUS : 'status' ;
+TYPE : 'type' ;
 
 ID : [a-zA-Z_][a-zA-Z0-9_]* ;
 STRING : '"' (~["\r\n])* '"' ;
 NUMBER : [0-9]+ ('.' [0-9]+)? ;
+COMMENT : '//' ~[\r\n]* -> skip ;
 WS : [ \t\r\n]+ -> skip ;
