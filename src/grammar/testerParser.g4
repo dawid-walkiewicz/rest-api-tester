@@ -39,12 +39,6 @@ pair
     : STRING ':' value
     ;
 
-key
-    : STRING
-    | NUMBER
-    | ID
-    ;
-
 arr
     : '[' value (',' value)* ']'
     | '[' ']'
