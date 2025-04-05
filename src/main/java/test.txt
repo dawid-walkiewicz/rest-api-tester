@@ -1,0 +1,10 @@
+ENV PASSWORD = "securePass123"
+
+test "Vars" options { timeout: 3000 } {
+    var string = "hello"
+    var number = 42
+    var double = 3.14
+    var boolean = true
+    var array = [1, 2, 3]
+    var object = { "key": "value", "number": 123 }
+}

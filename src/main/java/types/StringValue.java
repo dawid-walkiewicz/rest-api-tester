@@ -15,4 +15,9 @@ public class StringValue implements Value{
     public String type() {
         return "String";
     }
+
+    @Override
+    public String toString() {
+        return value;
+    }
 }

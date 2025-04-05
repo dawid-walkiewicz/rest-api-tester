@@ -19,4 +19,9 @@ public class ObjectValue implements Value{
     public Value getValue(String key) {
         return values.get(key);
     }
+
+    @Override
+    public String toString() {
+        return values.toString();
+    }
 }
