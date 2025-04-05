@@ -1,5 +1,5 @@
-parser grammar testerParser;
-options { tokenVocab=testerLexer; }
+parser grammar TesterParser;
+options { tokenVocab=TesterLexer; }
 
 program : (testCase | envDeclaration)* ;
 

@@ -1,4 +1,4 @@
-lexer grammar testerLexer;
+lexer grammar TesterLexer;
 
 TEST : 'test' ;
 GET : 'GET' ;
