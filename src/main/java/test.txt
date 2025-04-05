@@ -7,4 +7,6 @@ test "Vars" options { timeout: 3000 } {
     var boolean = true
     var array = [1, 2, 3]
     var object = { "key": "value", "number": 123 }
+
+    string = "${string} world"
 }

@@ -8,6 +8,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class TesterVisitor extends TesterParserBaseVisitor<Value> {
     private GlobalSymbols<Value> globalVars;
@@ -151,7 +153,8 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
     public Value visitValue(TesterParser.ValueContext ctx) {
         if (ctx.STRING() != null) {
             String text = stripQuotes(ctx.STRING().getText());
-            return new StringValue(text);
+            String interpolated = interpolateString(text);
+            return new StringValue(interpolated);
         }
         else if (ctx.NUMBER() != null) {
             double num = Double.parseDouble(ctx.NUMBER().getText());
@@ -172,17 +175,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         else if (ctx.path() != null) {
             return visit(ctx.path());
         }
-//        else if (ctx.VAR_REF() != null) {
-//            // Zwróć np. VarReferenceValue (jeśli chcesz interpretować to inaczej)
-//            String varName = parseVarRef(ctx.VAR_REF().getText());
-//            return new VarReferenceValue(varName);
-//        }
-//        else if (ctx.ENV_REF() != null) {
-//            Value envName = parseEnvRef(ctx.ENV_REF().getText());
-//            return new EnvReferenceValue(envName);
-//        }
 
-        // Gdyby nic nie pasowało:
         return super.visitValue(ctx);
     }
 
@@ -221,18 +214,6 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         return super.visitPath(ctx);
     }
 
-    private String stripQuotes(String text) {
-        return text.substring(1, text.length() - 1);
-    }
-
-//    private String parseVarRef(String ref) {
-//        // ref będzie w stylu:  "@{PASSWORD}"  lub  "${someVar}"
-//        // W zależności od tego, jak chcesz go wyciągać:
-//        // Tutaj np. usuń pierwsze 3 znaki i ostatni znak
-//        // itp. – implementacja dowolna
-//        return ...;
-//    }
-
     public void pushScope() {
         localVars.enterScope();
     }
@@ -245,4 +226,36 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         localVars.newSymbol(paramName);
         localVars.setSymbol(paramName, value);
     }
+
+    private String stripQuotes(String text) {
+        return text.substring(1, text.length() - 1);
+    }
+
+    private String parseInterpolationRef(String ref) {
+        return ref.substring(3, ref.length() - 2);
+    }
+
+    private String interpolateString(String input) {
+
+        Pattern pattern = Pattern.compile("\\$\\{([a-zA-Z_][a-zA-Z0-9_]*)\\}");
+        Matcher matcher = pattern.matcher(input);
+        StringBuffer sb = new StringBuffer();
+
+        while (matcher.find()) {
+            String varName = matcher.group(1); // nazwa zmiennej wewnątrz ${...}
+            // pobierz wartość zmiennej z aktualnej tabeli symboli (np. localVars)
+            Value varValue = localVars.getSymbol(varName);
+            if (varValue == null) {
+                // obsługa błędu lub załóż, że niewłaściwa zmienna
+                throw new RuntimeException("Nieznana zmienna: " + varName);
+            }
+            // zastąp w stringu:
+            String replacement = varValue.toString(); // lub cokolwiek innego
+            matcher.appendReplacement(sb, replacement);
+        }
+        matcher.appendTail(sb);
+
+        return sb.toString();
+    }
+
 }
