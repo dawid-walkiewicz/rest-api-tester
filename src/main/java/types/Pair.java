@@ -1,21 +1,6 @@
 package types;
 
-public class Pair implements Value {
-    private final String key;
-    private final Value value;
-
-    public Pair(String first, Value second) {
-        this.key = first;
-        this.value = second;
-    }
-
-    public String getKey() {
-        return key;
-    }
-
-    public Value getValue() {
-        return value;
-    }
+public record Pair(String key, Value value) implements Value {
 
     @Override
     public String type() {

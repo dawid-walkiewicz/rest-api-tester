@@ -4,10 +4,7 @@ import symbols.GlobalSymbols;
 import symbols.LocalSymbols;
 import types.*;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -36,7 +33,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
     public Value visitTestCase(TesterParser.TestCaseContext ctx) {
         pushScope();
 
-        currentTestCaseName = stripQuotes(ctx.STRING().getText());
+        currentTestCaseName = processString(ctx.STRING().getText());
         if (ctx.optionsBlock() != null) {
             visit(ctx.optionsBlock());
         }
@@ -78,7 +75,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
             double number = Double.parseDouble(ctx.NUMBER().getText());
             return new NumberValue(number);
         } else if (ctx.STRING() != null) {
-            String text = stripQuotes(ctx.STRING().getText());
+            String text = processString(ctx.STRING().getText());
             return new StringValue(text);
         }
         return super.visitOptionValue(ctx);
@@ -125,8 +122,8 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         for (TesterParser.PairContext p : pairs) {
             Pair pair = (Pair) visit(p);
 
-             String key = pair.getKey();
-             Value val  = pair.getValue();
+             String key = pair.key();
+             Value val  = pair.value();
              map.put(key, val);
         }
         return new ObjectValue(map);
@@ -135,7 +132,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
     @Override
     public Value visitPair(TesterParser.PairContext ctx) {
         String rawKey = ctx.STRING().getText();
-        String key = stripQuotes(rawKey);
+        String key = processString(rawKey);
         Value val = visit(ctx.value());
         return new Pair(key, val);
     }
@@ -152,9 +149,8 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
     @Override
     public Value visitValue(TesterParser.ValueContext ctx) {
         if (ctx.STRING() != null) {
-            String text = stripQuotes(ctx.STRING().getText());
-            String interpolated = interpolateString(text);
-            return new StringValue(interpolated);
+            String text = processString(ctx.STRING().getText());
+            return new StringValue(text);
         }
         else if (ctx.NUMBER() != null) {
             double num = Double.parseDouble(ctx.NUMBER().getText());
@@ -196,22 +192,54 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
 
     @Override
     public Value visitRootElement(TesterParser.RootElementContext ctx) {
-        return super.visitRootElement(ctx);
-    }
-
-    @Override
-    public Value visitBracketAccess(TesterParser.BracketAccessContext ctx) {
-        return super.visitBracketAccess(ctx);
+        String root = "";
+        if (ctx.RESPONSE() != null) {
+            root = ctx.RESPONSE().getText();
+        } else if (ctx.BODY() != null) {
+            root = ctx.BODY().getText();
+        } else if (ctx.HEADERS() != null) {
+            root = ctx.HEADERS().getText();
+        } else if (ctx.STATUS() != null) {
+            root = ctx.STATUS().getText();
+        } else if (ctx.TYPE() != null) {
+            root = ctx.TYPE().getText();
+        } else if (ctx.ID() != null) {
+            root = ctx.ID().getText();
+        }
+        return new StringValue(root);
     }
 
     @Override
     public Value visitProperty(TesterParser.PropertyContext ctx) {
+        if (ctx.STRING() != null) {
+            String text = processString(ctx.STRING().getText());
+            return new StringValue(text);
+        } else if (ctx.ID() != null) {
+            String id = ctx.ID().getText();
+            return new StringValue(id);
+        } else if (ctx.NUMBER() != null) {
+            double num = Double.parseDouble(ctx.NUMBER().getText());
+            return new NumberValue(num);
+        }
         return super.visitProperty(ctx);
     }
 
     @Override
+    public Value visitBracketAccess(TesterParser.BracketAccessContext ctx) {
+        return visit(ctx.property());
+    }
+
+    @Override
     public Value visitPath(TesterParser.PathContext ctx) {
-        return super.visitPath(ctx);
+        Value root = visit(ctx.rootElement());
+        String rootName = ((StringValue) root).getValue();
+
+        List<Value> properties = new ArrayList<>();
+        for (TesterParser.BracketAccessContext bracket : ctx.bracketAccess()) {
+            properties.add(visit(bracket));
+        }
+
+        return dig(rootName, properties);
     }
 
     public void pushScope() {
@@ -231,15 +259,11 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         return text.substring(1, text.length() - 1);
     }
 
-    private String parseInterpolationRef(String ref) {
-        return ref.substring(3, ref.length() - 2);
-    }
-
     private String interpolateString(String input) {
 
         Pattern pattern = Pattern.compile("\\$\\{([a-zA-Z_][a-zA-Z0-9_]*)\\}");
         Matcher matcher = pattern.matcher(input);
-        StringBuffer sb = new StringBuffer();
+        StringBuilder sb = new StringBuilder();
 
         while (matcher.find()) {
             String varName = matcher.group(1); // nazwa zmiennej wewnątrz ${...}
@@ -256,6 +280,41 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         matcher.appendTail(sb);
 
         return sb.toString();
+    }
+
+    private String processString(String input) {
+        return interpolateString(stripQuotes(input));
+    }
+
+    private Value dig(String rootName, List<Value> properties) {
+        Value root = localVars.getSymbol(rootName);
+        if (root == null) {
+            throw new RuntimeException("Undefined variable: " + rootName);
+        }
+
+        for (Value property : properties) {
+            if (property instanceof StringValue) {
+                String propName = ((StringValue) property).getValue();
+                if (root instanceof ObjectValue) {
+                    root = ((ObjectValue) root).getValue(propName);
+                } else if (root instanceof ListValue) {
+                    throw new RuntimeException("Illegal argument: " + root.type() + " does not support: " + property.type());
+                } else {
+                    throw new RuntimeException("Undefined property: " + propName + " in " + root.type());
+                }
+            } else if (property instanceof NumberValue) {
+                Double propName = ((NumberValue) property).getValue();
+                if (root instanceof ObjectValue) {
+                    throw new RuntimeException("Illegal argument: " + root.type() + " does not support: " + property.type());
+                } else if (root instanceof ListValue) {
+                    root = ((ListValue) root).get(propName.intValue());
+                } else {
+                    throw new RuntimeException("Undefined property: " + propName + " in " + root.type());
+                }
+            }
+        }
+
+        return root;
     }
 
 }

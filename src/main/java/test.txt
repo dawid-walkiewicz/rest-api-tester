@@ -6,7 +6,12 @@ test "Vars" options { timeout: 3000 } {
     var double = 3.14
     var boolean = true
     var array = [1, 2, 3]
-    var object = { "key": "value", "number": 123 }
+    var object = { "key": "value", "number": 123, "ob": {
+        "ttt": "ttt"
+    } }
 
     string = "${string} world"
+
+    var second = array[1]
+    var obob = object["ob"]["ttt"]
 }

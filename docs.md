@@ -95,6 +95,8 @@ Do poszczególnych elementów odpowiedzi można odwołać się za pomocą:
 
 - type (typ str) - typ odpowiedzi
 
+Są one traktowane jako zmienne lokalne i można się do nich odwoływać w obrębie testu. 
+Z tego powodu nie można ich deklarować jako zmienne lokalne.
 
 ## Tworzenie testów
 

@@ -58,7 +58,7 @@ assertion : EXPECT assertionExpr ;
 
 assertionExpr
     : STATUS comparison NUMBER
-    | path comparison value
+    | value comparison value
     ;
 
 comparison : EQ | NEQ | LT | GT | LTE | GTE ;
