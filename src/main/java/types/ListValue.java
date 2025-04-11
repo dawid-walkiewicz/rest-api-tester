@@ -29,13 +29,7 @@ public record ListValue(List<Value> values) implements Value {
                 return true;
             }
             case NEQ -> {
-                if (values.size() != values1.size()) return true;
-                for (int i = 0; i < values.size(); i++) {
-                    if (!values.get(i).applyOperator(Operator.NEQ, values1.get(i))) {
-                        return true;
-                    }
-                }
-                return false;
+                return !applyOperator(Operator.EQ, other);
             }
             default -> throw new RuntimeException("Invalid operator for list: " + operator);
         }
