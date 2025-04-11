@@ -34,13 +34,7 @@ public record ObjectValue(Map<String, Value> values) implements Value {
                 return true;
             }
             case NEQ -> {
-                if (values.size() != values1.size()) return true;
-                for (String key : values.keySet()) {
-                    if (!values.get(key).applyOperator(Operator.NEQ, values1.get(key))) {
-                        return true;
-                    }
-                }
-                return false;
+                return !this.applyOperator(Operator.EQ, other);
             }
             default -> throw new RuntimeException("Invalid operator for object: " + operator);
         }
