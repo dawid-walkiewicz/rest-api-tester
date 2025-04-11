@@ -52,7 +52,6 @@ value
     | arr
     | TRUE
     | FALSE
-    | ID
     ;
 
 assertion : EXPECT boolExpr ;
@@ -76,4 +75,4 @@ bracketAccess
 
 property : ID | STRING | NUMBER ;
 
-path : ID bracketAccess* ;
+path : ID bracketAccess* ; // By using * (zero or more), this allows access to vars

@@ -202,11 +202,6 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
     }
 
     @Override
-    public Value visitComparison(TesterParser.ComparisonContext ctx) {
-        return super.visitComparison(ctx);
-    }
-
-    @Override
     public Value visitProperty(TesterParser.PropertyContext ctx) {
         if (ctx.STRING() != null) {
             String text = processString(ctx.STRING().getText());
