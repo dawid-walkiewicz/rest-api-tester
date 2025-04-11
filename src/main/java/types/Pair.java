@@ -8,6 +8,11 @@ public record Pair(String key, Value value) implements Value {
     }
 
     @Override
+    public boolean applyOperator(Operator operator, Value other) throws RuntimeException {
+        return false;
+    }
+
+    @Override
     public String toString() {
         return "Pair{" +
                 "key='" + key + '\'' +

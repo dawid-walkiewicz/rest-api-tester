@@ -58,11 +58,11 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
     public Value visitOption(TesterParser.OptionContext ctx) {
         if ("repeat".equals(ctx.ID().getText())) {
             Value result = visit(ctx.optionValue());
-            currentTestRepeats = (int) ((NumberValue) result).getValue();
+            currentTestRepeats = (int) ((NumberValue) result).value();
             return result;
         } else if ("timeout".equals(ctx.ID().getText())) {
             Value result = visit(ctx.optionValue());
-            currentTestTimeout = (int) ((NumberValue) result).getValue();
+            currentTestTimeout = (int) ((NumberValue) result).value();
             return result;
         } else {
             return super.visitOption(ctx);
@@ -80,7 +80,6 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         }
         return super.visitOptionValue(ctx);
     }
-
 
     @Override
     public Value visitStatement(TesterParser.StatementContext ctx) {
@@ -177,36 +176,34 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
 
     @Override
     public Value visitAssertion(TesterParser.AssertionContext ctx) {
-        return super.visitAssertion(ctx);
+        Value result = visit(ctx.boolExpr());
+
+        //TODO: Better output
+        System.out.println(ctx.boolExpr().getText() + " = " + result);
+        return result;
     }
 
     @Override
     public Value visitAssertionExpr(TesterParser.AssertionExprContext ctx) {
-        return super.visitAssertionExpr(ctx);
+        var operator = switch (ctx.comparison().getText()) {
+            case "==" -> Operator.EQ;
+            case "!=" -> Operator.NEQ;
+            case "<" -> Operator.LT;
+            case "<=" -> Operator.LTE;
+            case ">" -> Operator.GT;
+            case ">=" -> Operator.GTE;
+            default -> throw new RuntimeException("Unknown operator: " + ctx.comparison());
+        };
+
+        Value left = visit(ctx.lval);
+        Value right = visit(ctx.rval);
+
+        return new BooleanValue(left.applyOperator(operator, right));
     }
 
     @Override
     public Value visitComparison(TesterParser.ComparisonContext ctx) {
         return super.visitComparison(ctx);
-    }
-
-    @Override
-    public Value visitRootElement(TesterParser.RootElementContext ctx) {
-        String root = "";
-        if (ctx.RESPONSE() != null) {
-            root = ctx.RESPONSE().getText();
-        } else if (ctx.BODY() != null) {
-            root = ctx.BODY().getText();
-        } else if (ctx.HEADERS() != null) {
-            root = ctx.HEADERS().getText();
-        } else if (ctx.STATUS() != null) {
-            root = ctx.STATUS().getText();
-        } else if (ctx.TYPE() != null) {
-            root = ctx.TYPE().getText();
-        } else if (ctx.ID() != null) {
-            root = ctx.ID().getText();
-        }
-        return new StringValue(root);
     }
 
     @Override
@@ -231,15 +228,43 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
 
     @Override
     public Value visitPath(TesterParser.PathContext ctx) {
-        Value root = visit(ctx.rootElement());
-        String rootName = ((StringValue) root).getValue();
+        String root = ctx.ID().getText();
 
         List<Value> properties = new ArrayList<>();
         for (TesterParser.BracketAccessContext bracket : ctx.bracketAccess()) {
             properties.add(visit(bracket));
         }
 
-        return dig(rootName, properties);
+        return dig(root, properties);
+    }
+
+    @Override
+    public Value visitBoolExpr(TesterParser.BoolExprContext ctx) {
+        if (ctx.assertionExpr() != null) {
+            return visitAssertionExpr(ctx.assertionExpr());
+        }
+
+        if (ctx.NOT() != null && ctx.boolExpr().size() == 1) {
+            boolean childBool = asBoolean(visit(ctx.boolExpr(0)));
+            return new BooleanValue(!childBool);
+        }
+
+        if (ctx.LPAREN() != null && ctx.RPAREN() != null && ctx.boolExpr().size() == 1) {
+            return visit(ctx.boolExpr(0));
+        }
+
+        if (ctx.boolExpr().size() == 2) {
+            boolean leftVal = asBoolean(visit(ctx.lval));
+            boolean rightVal = asBoolean(visit(ctx.rval));
+
+            if (ctx.AND() != null) {
+                return new BooleanValue(leftVal && rightVal);
+            } else if (ctx.OR() != null) {
+                return new BooleanValue(leftVal || rightVal);
+            }
+        }
+
+        return super.visitBoolExpr(ctx);
     }
 
     public void pushScope() {
@@ -266,15 +291,12 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         StringBuilder sb = new StringBuilder();
 
         while (matcher.find()) {
-            String varName = matcher.group(1); // nazwa zmiennej wewnątrz ${...}
-            // pobierz wartość zmiennej z aktualnej tabeli symboli (np. localVars)
+            String varName = matcher.group(1);
             Value varValue = localVars.getSymbol(varName);
             if (varValue == null) {
-                // obsługa błędu lub załóż, że niewłaściwa zmienna
-                throw new RuntimeException("Nieznana zmienna: " + varName);
+                throw new RuntimeException("Unknown var: " + varName);
             }
-            // zastąp w stringu:
-            String replacement = varValue.toString(); // lub cokolwiek innego
+            String replacement = varValue.toString();
             matcher.appendReplacement(sb, replacement);
         }
         matcher.appendTail(sb);
@@ -294,7 +316,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
 
         for (Value property : properties) {
             if (property instanceof StringValue) {
-                String propName = ((StringValue) property).getValue();
+                String propName = ((StringValue) property).value();
                 if (root instanceof ObjectValue) {
                     root = ((ObjectValue) root).getValue(propName);
                 } else if (root instanceof ListValue) {
@@ -303,11 +325,11 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
                     throw new RuntimeException("Undefined property: " + propName + " in " + root.type());
                 }
             } else if (property instanceof NumberValue) {
-                Double propName = ((NumberValue) property).getValue();
+                double propName = ((NumberValue) property).value();
                 if (root instanceof ObjectValue) {
                     throw new RuntimeException("Illegal argument: " + root.type() + " does not support: " + property.type());
                 } else if (root instanceof ListValue) {
-                    root = ((ListValue) root).get(propName.intValue());
+                    root = ((ListValue) root).get((int) propName);
                 } else {
                     throw new RuntimeException("Undefined property: " + propName + " in " + root.type());
                 }
@@ -317,4 +339,10 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         return root;
     }
 
+    private boolean asBoolean(Value v) {
+        if (!(v instanceof BooleanValue)) {
+            throw new RuntimeException("Value is not a boolean: " + v.type());
+        }
+        return ((BooleanValue) v).value();
+    }
 }

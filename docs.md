@@ -13,11 +13,17 @@ Dostępne są następujące operatory porównania:
 - `>=` - większe lub równe
 - `<=` - mniejsze lub równe
 
+Dostępne są następujące operatory logiczne:
+- `&&` - i
+- `||` - lub
+- `!` - nie
+
 Przykłady asercji:
 ```
 expect status == 200
 expect body[user][id] == „admin”
 expect headers[Content-Type] != "text/html"
+expect body[success] == true && body[message] == "OK"
 ```
 
 ## Deklarowanie zmiennych

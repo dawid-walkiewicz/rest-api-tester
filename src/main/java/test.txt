@@ -14,4 +14,16 @@ test "Vars" options { timeout: 3000 } {
 
     var second = array[1]
     var obob = object["ob"]["ttt"]
+
+    expect string == "hello world"
+    expect number != 42
+    expect double > 3.13
+    expect boolean == true
+    expect array[0] == 1
+    expect array[1] == 2
+    expect array[2] == 3
+    expect object["key"] == "value"
+    expect object["number"] == 123
+    expect object["ob"]["ttt"] == "ttt"
+    expect (number == 42 && double != 3.14) || (boolean == true && string == "hello world")
 }

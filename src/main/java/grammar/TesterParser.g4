@@ -52,18 +52,23 @@ value
     | arr
     | TRUE
     | FALSE
+    | ID
     ;
 
-assertion : EXPECT assertionExpr ;
+assertion : EXPECT boolExpr ;
+
+boolExpr
+    : lval=boolExpr (AND | OR) rval=boolExpr
+    | NOT boolExpr
+    | LPAREN boolExpr RPAREN
+    | assertionExpr
+    ;
 
 assertionExpr
-    : STATUS comparison NUMBER
-    | value comparison value
+    : lval=value comparison rval=value
     ;
 
 comparison : EQ | NEQ | LT | GT | LTE | GTE ;
-
-rootElement : RESPONSE | BODY | HEADERS | STATUS | TYPE | ID ;
 
 bracketAccess
     : LBRACK property RBRACK
@@ -71,4 +76,4 @@ bracketAccess
 
 property : ID | STRING | NUMBER ;
 
-path : rootElement bracketAccess* ;
+path : ID bracketAccess* ;
