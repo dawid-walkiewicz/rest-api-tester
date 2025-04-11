@@ -9,7 +9,7 @@ public record Pair(String key, Value value) implements Value {
 
     @Override
     public boolean applyOperator(Operator operator, Value other) throws RuntimeException {
-        return false;
+        throw new UnsupportedOperationException("applyOperator is not supported for Pair objects.");
     }
 
     @Override
