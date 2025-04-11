@@ -19,4 +19,9 @@ public class ListValue implements Value{
     public String type() {
         return "List";
     }
+
+    @Override
+    public String toString() {
+        return values.toString();
+    }
 }

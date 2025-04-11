@@ -34,9 +34,6 @@ DOT : '.' ;
 TRUE : 'true' ;
 FALSE : 'false' ;
 
-ENV_REF : '"@{' ID '}"' ;
-VAR_REF : '"${' ID '}"' ;
-
 RESPONSE : 'response' ;
 BODY : 'body' ;
 HEADERS : 'headers' ;

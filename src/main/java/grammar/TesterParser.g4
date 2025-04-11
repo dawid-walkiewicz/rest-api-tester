@@ -28,7 +28,7 @@ request
 
 method : GET | POST | PUT | DELETE | HEAD ;
 
-endpoint : STRING | VAR_REF | ENV_REF;
+endpoint : STRING ;
 
 obj
     : '{' pair (',' pair)* '}'
@@ -52,15 +52,13 @@ value
     | arr
     | TRUE
     | FALSE
-    | VAR_REF
-    | ENV_REF
     ;
 
 assertion : EXPECT assertionExpr ;
 
 assertionExpr
     : STATUS comparison NUMBER
-    | path comparison value
+    | value comparison value
     ;
 
 comparison : EQ | NEQ | LT | GT | LTE | GTE ;

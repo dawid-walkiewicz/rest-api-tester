@@ -15,4 +15,9 @@ public class BooleanValue implements Value{
     public String type() {
         return "Boolean";
     }
+
+    @Override
+    public String toString() {
+        return String.valueOf(value);
+    }
 }
