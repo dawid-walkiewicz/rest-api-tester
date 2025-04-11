@@ -8,10 +8,6 @@ public record ObjectValue(Map<String, Value> values) implements Value {
         return values.get(key);
     }
 
-    public Value getValue(String key) {
-        return values.get(key);
-    }
-
     @Override
     public String toString() {
         return values.toString();
