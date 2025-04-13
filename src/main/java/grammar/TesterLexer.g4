@@ -21,6 +21,10 @@ GT : '>' ;
 LTE : '<=' ;
 GTE : '>=' ;
 
+AND : '&&' ;
+OR : '||' ;
+NOT : '!' ;
+
 LCURLY : '{' ;
 RCURLY : '}' ;
 LPAREN : '(' ;
@@ -34,14 +38,9 @@ DOT : '.' ;
 TRUE : 'true' ;
 FALSE : 'false' ;
 
-RESPONSE : 'response' ;
-BODY : 'body' ;
-HEADERS : 'headers' ;
-STATUS : 'status' ;
-TYPE : 'type' ;
-
 ID : [a-zA-Z_][a-zA-Z0-9_]* ;
 STRING : '"' (~["\r\n])* '"' ;
 NUMBER : [0-9]+ ('.' [0-9]+)? ;
+
 COMMENT : '//' ~[\r\n]* -> skip ;
 WS : [ \t\r\n]+ -> skip ;
