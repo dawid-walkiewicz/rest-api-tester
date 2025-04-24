@@ -7,6 +7,7 @@ import types.*;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class TesterVisitor extends TesterParserBaseVisitor<Value> {
     private GlobalSymbols<Value> globalVars;
@@ -15,6 +16,9 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
     private String currentTestCaseName;
     private int currentTestRepeats;
     private int currentTestTimeout;
+
+    private final HttpRequestWrapper executor = new HttpRequestWrapper();
+    private Map<String, String> options = new HashMap<>();
 
     @Override
     public Value visitProgram(TesterParser.ProgramContext ctx) {
@@ -46,7 +50,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
 
     @Override
     public Value visitOptionsBlock(TesterParser.OptionsBlockContext ctx) {
-        return super.visitOptionsBlock(ctx);
+        return visitOptionsList(ctx.optionsList());
     }
 
     @Override
@@ -101,8 +105,75 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
 
     @Override
     public Value visitRequest(TesterParser.RequestContext ctx) {
-        return super.visitRequest(ctx);
+
+        String method = ctx.method().getText();
+        String endpoint = stripQuotes(ctx.endpoint().getText());
+        String jsonBody = ctx.obj() != null ? parseJsonObj(ctx.obj()) : null;
+
+        HttpResult response;
+        System.out.println("-------------------------------------");
+        System.out.println(currentTestCaseName + ":");
+        if (currentTestRepeats > 1 ) {
+            switch (method) {
+                case "GET" -> response = executor.sendRequest(endpoint, currentTestRepeats, currentTestTimeout,"GET");
+                case "HEAD" -> response = executor.sendRequest(endpoint, currentTestRepeats, currentTestTimeout,"HEAD");
+                case "POST" -> response = executor.sendRequest(endpoint, jsonBody, currentTestRepeats, currentTestTimeout,"POST");
+                default -> throw new RuntimeException("Unsupported method: " + method);
+            }
+        } else {
+            switch (method) {
+                case "GET" -> response = executor.sendGet(endpoint);
+                case "HEAD" -> response = executor.sendHead(endpoint);
+                case "POST" -> response = executor.sendPostJson(endpoint, jsonBody);
+                default -> throw new RuntimeException("Unsupported method: " + method);
+            }
+        }
+
+
+        System.out.println("Send " + method + " " + endpoint);
+        System.out.println(response);
+        System.out.println("-------------------------------------");
+
+
+        currentTestRepeats = 0;
+        currentTestTimeout = 0;
+
+        return null;
     }
+
+    private String parseJsonObj(TesterParser.ObjContext ctx) {
+        if (ctx.pair().isEmpty()) return "{}";
+
+        StringBuilder json = new StringBuilder("{");
+        List<TesterParser.PairContext> pairs = ctx.pair();
+        for (int i = 0; i < pairs.size(); i++) {
+            var pair = pairs.get(i);
+            String key = stripQuotes(pair.STRING().getText());
+            String value = parseValue(pair.value());
+
+            json.append("\"").append(key).append("\":").append(value);
+            if (i < pairs.size() - 1) json.append(",");
+        }
+        json.append("}");
+        return json.toString();
+    }
+    private String parseValue(TesterParser.ValueContext ctx) {
+        if (ctx.STRING() != null) return ctx.STRING().getText();
+        if (ctx.NUMBER() != null) return ctx.NUMBER().getText();
+        if (ctx.TRUE() != null) return "true";
+        if (ctx.FALSE() != null) return "false";
+        if (ctx.obj() != null) return parseJsonObj(ctx.obj());
+        if (ctx.arr() != null) return parseArray(ctx.arr());
+        return "\"<unsupported>\"";
+    }
+    private String parseArray(TesterParser.ArrContext ctx) {
+        if (ctx.value().isEmpty()) return "[]";
+        return ctx.value().stream()
+                .map(this::parseValue)
+                .collect(Collectors.joining(",", "[", "]"));
+    }
+
+
 
     @Override
     public Value visitMethod(TesterParser.MethodContext ctx) {
@@ -313,7 +384,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
             if (property instanceof StringValue) {
                 String propName = ((StringValue) property).value();
                 if (root instanceof ObjectValue) {
-                    root = ((ObjectValue) root).getValue(propName);
+//                    root = ((ObjectValue) root).getValue(propName);
                 } else if (root instanceof ListValue) {
                     throw new RuntimeException("Illegal argument: " + root.type() + " does not support: " + property.type());
                 } else {

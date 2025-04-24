@@ -1,7 +1,7 @@
 import java.util.ArrayList;
 import java.util.List;
 
-public class HttpBenchmarkResult {
+public class HttpBenchmarkResult implements HttpResult {
     public final int totalRequests;
     public final int successCount;
     public final long minTime;
@@ -23,6 +23,8 @@ public class HttpBenchmarkResult {
                 "  Successful requests (200 OK): " + successCount + " (" + (100.0 * successCount / totalRequests) + "%)\n" +
                 "  Min Time: " + minTime + " ms\n" +
                 "  Max Time: " + maxTime + " ms\n" +
-                "  Avg Time: " + String.format("%.2f", avgTimeMillis) + " ms";
+                "  Average Time: " + String.format("%.2f", avgTimeMillis) + " ms";
     }
 }
+
+interface HttpResult {}

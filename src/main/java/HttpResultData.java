@@ -1,6 +1,6 @@
 import java.util.Map;
 
-public record HttpResponseData(int statusCode, Map<String, String> headers, String body) {
+public record HttpResultData(int statusCode, Map<String, String> headers, String body) implements HttpResult {
 
     @Override
     public String toString() {

@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 public class HttpRequestWrapper {
 
@@ -16,7 +18,7 @@ public class HttpRequestWrapper {
         this.client = HttpClient.newHttpClient();
     }
 
-    public HttpResponseData sendGet(String url) {
+    public HttpResultData sendGet(String url) {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .GET()
@@ -29,7 +31,7 @@ public class HttpRequestWrapper {
         }
     }
 
-    public HttpResponseData sendHead(String url) {
+    public HttpResultData sendHead(String url) {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .method("HEAD", HttpRequest.BodyPublishers.noBody())
@@ -39,13 +41,13 @@ public class HttpRequestWrapper {
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
             Map<String, String> headerMap = new HashMap<>();
             response.headers().map().forEach((key, values) -> headerMap.put(key, String.join(", ", values)));
-            return new HttpResponseData(response.statusCode(), headerMap, "");
+            return new HttpResultData(response.statusCode(), headerMap, "");
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException("HEAD request failed", e);
         }
     }
 
-    public HttpResponseData sendPostJson(String url, String jsonBody) {
+    public HttpResultData sendPostJson(String url, String jsonBody) {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .header("Content-Type", "application/json")
@@ -59,25 +61,59 @@ public class HttpRequestWrapper {
         }
     }
 
-    private HttpResponseData getHttpResponseData(HttpRequest request) throws IOException, InterruptedException {
+    private HttpResultData getHttpResponseData(HttpRequest request) throws IOException, InterruptedException {
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
         Map<String, String> headerMap = new HashMap<>();
         response.headers().map().forEach((key, values) -> headerMap.put(key, String.join(", ", values)));
-        return new HttpResponseData(response.statusCode(), headerMap, response.body());
+        return new HttpResultData(response.statusCode(), headerMap, response.body());
     }
 
-    public HttpBenchmarkResult benchmarkGet(String url, int times) {
+    public HttpBenchmarkResult sendRequest(String url, int times, int timeout, String name) {
+        switch (name) {
+            case "GET" -> {
+                return sendRequestBenchmark(url, times, timeout, this::sendGet);
+            }
+            case "HEAD" -> {
+                return sendRequestBenchmark(url, times, timeout, this::sendHead);
+            }
+
+        }
+        return null;
+    }
+    public HttpBenchmarkResult sendRequest(String url, String jsonBody,  int times, int timeout, String name) {
+        switch (name) {
+            case "POST" -> {
+                return sendRequestBenchmark(url, times, timeout, jsonBody, this::sendPostJson);
+            }
+
+            default -> {
+                return null;
+            }
+        }
+    }
+
+    private HttpBenchmarkResult sendRequestBenchmark(
+            String url, int times, int timeout, Function<String, HttpResultData> function) {
+
         List<Long> timings = new ArrayList<>();
         int success = 0;
 
+        long benchmarkStart = System.currentTimeMillis();
+
         for (int i = 0; i < times; i++) {
-            long start = System.nanoTime();
-            HttpResponseData response = sendGet(url);
-            long elapsed = (System.nanoTime() - start) / 1_000_000; // ms
+            long iterationStart = System.nanoTime();
+            HttpResultData response = function.apply(url);
+            long elapsed = (System.nanoTime() - iterationStart) / 1_000_000; // ms
             timings.add(elapsed);
 
             if (response.statusCode() == 200) {
                 success++;
+            }
+
+            long totalElapsed = System.currentTimeMillis() - benchmarkStart;
+            if (timeout != 0 && totalElapsed > timeout) {
+                System.out.println("Benchmark timed out after " + totalElapsed + " ms");
+                break;
             }
         }
 
@@ -85,7 +121,40 @@ public class HttpRequestWrapper {
         long max = timings.stream().max(Long::compareTo).orElse(0L);
         double avg = timings.stream().mapToLong(Long::longValue).average().orElse(0.0);
 
-        return new HttpBenchmarkResult(times, success, min, max, avg);
+        return new HttpBenchmarkResult(timings.size(), success, min, max, avg);
+    }
+
+    private HttpBenchmarkResult sendRequestBenchmark(
+            String url, int times, int timeout, String jsonBody,
+            BiFunction<String, String, HttpResultData> function) {
+
+        List<Long> timings = new ArrayList<>();
+        int success = 0;
+
+        long benchmarkStart = System.currentTimeMillis();
+
+        for (int i = 0; i < times; i++) {
+            long iterationStart = System.nanoTime();
+            HttpResultData response = function.apply(url, jsonBody);
+            long elapsed = (System.nanoTime() - iterationStart) / 1_000_000; // ms
+            timings.add(elapsed);
+
+            if (response.statusCode() == 200) {
+                success++;
+            }
+
+            long totalElapsed = System.currentTimeMillis() - benchmarkStart;
+            if (timeout != 0 && totalElapsed > timeout) {
+                System.out.println("Benchmark timed out after " + totalElapsed + " ms");
+                break;
+            }
+        }
+
+        long min = timings.stream().min(Long::compareTo).orElse(0L);
+        long max = timings.stream().max(Long::compareTo).orElse(0L);
+        double avg = timings.stream().mapToLong(Long::longValue).average().orElse(0.0);
+
+        return new HttpBenchmarkResult(timings.size(), success, min, max, avg);
     }
 
 }

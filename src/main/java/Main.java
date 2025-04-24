@@ -10,7 +10,7 @@ public class Main {
         CharStream input;
 
         try {
-            input = CharStreams.fromFileName("src/main/java/test.txt");
+            input = CharStreams.fromFileName("src/main/java/test_http.txt");
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
