@@ -107,7 +107,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
     public Value visitRequest(TesterParser.RequestContext ctx) {
 
         String method = ctx.method().getText();
-        String endpoint = stripQuotes(ctx.endpoint().getText());
+        String endpoint = processString(ctx.endpoint().getText());
         String jsonBody = ctx.obj() != null ? parseJsonObj(ctx.obj()) : null;
 
         HttpResult response;
