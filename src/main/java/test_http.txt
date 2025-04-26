@@ -13,10 +13,10 @@ test "Post User" {
            }
         }
     }
-test "Benchmark GET" options { repeat: 10 } {
+test "Benchmark GET no timeout" options { repeat: 10 } {
     GET "https://api.restful-api.dev/objects"
 }
 
-test "Benchmark GET" options { repeat: 53, timeout: 1000 } {
-    GET "https://httpbin.org/get"
+test "Benchmark GET" options { repeat: 53, timeout: 2000 } {
+    GET "https://api.restful-api.dev/objects"
 }

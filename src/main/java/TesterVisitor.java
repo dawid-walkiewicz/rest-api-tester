@@ -4,6 +4,7 @@ import symbols.GlobalSymbols;
 import symbols.LocalSymbols;
 import types.*;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -12,6 +13,7 @@ import java.util.stream.Collectors;
 public class TesterVisitor extends TesterParserBaseVisitor<Value> {
     private GlobalSymbols<Value> globalVars;
     private LocalSymbols<Value> localVars;
+    private static final long DEFAULT_TIMEOUT_MS = 10_000;
 
     private String currentTestCaseName;
     private int currentTestRepeats;
@@ -113,18 +115,23 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         HttpResult response;
         System.out.println("-------------------------------------");
         System.out.println(currentTestCaseName + ":");
+        Duration duration = Duration.ofMillis(currentTestTimeout <= 0 ? DEFAULT_TIMEOUT_MS : currentTestTimeout);
         if (currentTestRepeats > 1 ) {
             switch (method) {
-                case "GET" -> response = executor.sendRequest(endpoint, currentTestRepeats, currentTestTimeout,"GET");
-                case "HEAD" -> response = executor.sendRequest(endpoint, currentTestRepeats, currentTestTimeout,"HEAD");
-                case "POST" -> response = executor.sendRequest(endpoint, jsonBody, currentTestRepeats, currentTestTimeout,"POST");
+                case "GET" -> response = executor.sendRequestBenchmark(endpoint, currentTestRepeats, duration,"GET");
+                case "HEAD" -> response = executor.sendRequestBenchmark(endpoint, currentTestRepeats, duration,"HEAD");
+                case "DELETE" -> response = executor.sendRequestBenchmark(endpoint, currentTestRepeats, duration,"DELETE");
+                case "POST" -> response = executor.sendRequestBenchmark(endpoint, currentTestRepeats, duration, jsonBody,"POST");
+                case "PUT" -> response = executor.sendRequestBenchmark(endpoint, currentTestRepeats, duration, jsonBody,"PUT");
                 default -> throw new RuntimeException("Unsupported method: " + method);
             }
         } else {
             switch (method) {
-                case "GET" -> response = executor.sendGet(endpoint);
-                case "HEAD" -> response = executor.sendHead(endpoint);
-                case "POST" -> response = executor.sendPostJson(endpoint, jsonBody);
+                case "GET" -> response = executor.sendGet(endpoint, duration);
+                case "HEAD" -> response = executor.sendHead(endpoint, duration);
+                case "DELETE" -> response = executor.sendDelete(endpoint, duration);
+                case "PUT" -> response = executor.sendPut(endpoint, jsonBody, duration);
+                case "POST" -> response = executor.sendPost(endpoint, jsonBody, duration);
                 default -> throw new RuntimeException("Unsupported method: " + method);
             }
         }
@@ -384,7 +391,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
             if (property instanceof StringValue) {
                 String propName = ((StringValue) property).value();
                 if (root instanceof ObjectValue) {
-//                    root = ((ObjectValue) root).getValue(propName);
+                    root = ((ObjectValue) root).get(propName);
                 } else if (root instanceof ListValue) {
                     throw new RuntimeException("Illegal argument: " + root.type() + " does not support: " + property.type());
                 } else {
