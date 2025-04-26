@@ -155,7 +155,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         List<TesterParser.PairContext> pairs = ctx.pair();
         for (int i = 0; i < pairs.size(); i++) {
             var pair = pairs.get(i);
-            String key = stripQuotes(pair.STRING().getText());
+            String key = processString(pair.STRING().getText());
             String value = parseValue(pair.value());
 
             json.append("\"").append(key).append("\":").append(value);
