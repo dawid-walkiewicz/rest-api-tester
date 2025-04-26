@@ -20,7 +20,6 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
     private int currentTestTimeout;
 
     private final HttpRequestWrapper executor = new HttpRequestWrapper();
-    private Map<String, String> options = new HashMap<>();
 
     @Override
     public Value visitProgram(TesterParser.ProgramContext ctx) {
