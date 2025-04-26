@@ -165,7 +165,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         return json.toString();
     }
     private String parseValue(TesterParser.ValueContext ctx) {
-        if (ctx.STRING() != null) return ctx.STRING().getText();
+        if (ctx.STRING() != null) return interpolateString(ctx.STRING().getText());
         if (ctx.NUMBER() != null) return ctx.NUMBER().getText();
         if (ctx.TRUE() != null) return "true";
         if (ctx.FALSE() != null) return "false";
