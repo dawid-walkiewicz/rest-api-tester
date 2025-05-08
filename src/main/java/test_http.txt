@@ -1,22 +1,34 @@
-test "Simple HEAD" options { repeat: 5, timeout: 20000} {
-    HEAD "https://api.restful-api.dev/objects"
+test "Simple HEAD" options { repeat: 2, timeout: 20000} {
+    HEAD "https://restapitester.free.beeceptor.com"
+    GET "https://restapitester.free.beeceptor.com"
+
+    expect status == 200
 }
 
-test "Post User" {
-    POST "https://api.restful-api.dev/objects"  {
-           "name": "Apple MacBook Pro 16",
-           "data": {
-              "year": 2019,
-              "price": 1849.99,
-              "CPU model": "Intel Core i9",
-              "Hard disk size": "1 TB"
-           }
-        }
-    }
-test "Benchmark GET no timeout" options { repeat: 10 } {
-    GET "https://api.restful-api.dev/objects"
+test "Very Complicated GET" options { repeat: 1, timeout: 20000} {
+    GET "http://127.0.0.1:8000/items"
+
+    expect status == 200
+
+    expect body[0]["id"] == 1
+    expect body[1]["id"] == 2
+    expect body[2]["id"] == 3
 }
 
-test "Benchmark GET" options { repeat: 53, timeout: 2000 } {
-    GET "https://api.restful-api.dev/objects"
+test "Complicated GET" options { repeat: 1, timeout: 20000} {
+    GET "http://127.0.0.1:8000/item/id/1"
+
+    expect status == 200
+
+    expect body["id"] == 1
+
+}
+
+test "Complicated GET failed assertions" options { repeat: 1, timeout: 20000} {
+    GET "http://127.0.0.1:8000/item/id/1"
+
+    expect status == 201
+
+    expect body["id"] == 3
+
 }
