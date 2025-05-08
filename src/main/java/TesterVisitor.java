@@ -36,16 +36,57 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
 
     @Override
     public Value visitTestCase(TesterParser.TestCaseContext ctx) {
-        pushScope();
+        System.out.println("\n" + "=".repeat(50));
+        System.out.println("Running test: " + processString(ctx.STRING().getText()));
+        System.out.println("=".repeat(50));
 
         currentTestCaseName = processString(ctx.STRING().getText());
         if (ctx.optionsBlock() != null) {
             visit(ctx.optionsBlock());
         }
 
-        Value result = super.visitTestCase(ctx);
+        Value result = null;
+        List<Long> timings = new ArrayList<>();
+        int success = 0;
+        int iterations = currentTestRepeats > 0 ? currentTestRepeats : 1;
 
-        popScope();
+        for (int i = 0; i < iterations; i++) {
+            System.out.println("\nIteration " + (i + 1) + "/" + iterations + ":");
+            System.out.println("-".repeat(20));
+            try {
+                long iterationStart = System.nanoTime();
+                pushScope();
+                for (TesterParser.StatementContext statement : ctx.statement()) {
+                    try {
+                        visit(statement);
+                    } catch (Exception e) {
+                        System.out.println("Error in statement: " + e.getMessage());
+                        throw e;
+                    }
+                }
+                long elapsed = (System.nanoTime() - iterationStart) / 1_000_000; // ms
+                timings.add(elapsed);
+                success++;
+            } catch (Exception e) {
+                System.out.println("Iteration " + (i + 1) + " failed: " + e.getMessage());
+            } finally {
+                popScope();
+            }
+        }
+
+        System.out.println("\nTest results for " + currentTestCaseName + ":");
+        System.out.println("-".repeat(30));
+        System.out.println("Total iterations: " + timings.size());
+        System.out.println("Successful iterations: " + success);
+        if (iterations > 1) {
+            System.out.println("Min time: " + timings.stream().min(Long::compareTo).orElse(0L) + "ms");
+            System.out.println("Max time: " + timings.stream().max(Long::compareTo).orElse(0L) + "ms");
+            System.out.println("Average time: " + String.format("%.2f", timings.stream().mapToLong(Long::longValue).average().orElse(0.0)) + "ms");
+        } else if (!timings.isEmpty()) {
+            System.out.println("Execution time: " + timings.get(0) + "ms");
+        }
+        System.out.println("-".repeat(30));
+
         return result;
     }
 
@@ -106,45 +147,91 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
 
     @Override
     public Value visitRequest(TesterParser.RequestContext ctx) {
-
         String method = ctx.method().getText();
         String endpoint = processString(ctx.endpoint().getText());
         String jsonBody = ctx.obj() != null ? parseJsonObj(ctx.obj()) : null;
 
-        HttpResult response;
-        System.out.println("-------------------------------------");
-        System.out.println(currentTestCaseName + ":");
+        HttpResultData response;
         Duration duration = Duration.ofMillis(currentTestTimeout <= 0 ? DEFAULT_TIMEOUT_MS : currentTestTimeout);
-        if (currentTestRepeats > 1 ) {
-            switch (method) {
-                case "GET" -> response = executor.sendRequestBenchmark(endpoint, currentTestRepeats, duration,"GET");
-                case "HEAD" -> response = executor.sendRequestBenchmark(endpoint, currentTestRepeats, duration,"HEAD");
-                case "DELETE" -> response = executor.sendRequestBenchmark(endpoint, currentTestRepeats, duration,"DELETE");
-                case "POST" -> response = executor.sendRequestBenchmark(endpoint, currentTestRepeats, duration, jsonBody,"POST");
-                case "PUT" -> response = executor.sendRequestBenchmark(endpoint, currentTestRepeats, duration, jsonBody,"PUT");
-                default -> throw new RuntimeException("Unsupported method: " + method);
-            }
-        } else {
-            switch (method) {
-                case "GET" -> response = executor.sendGet(endpoint, duration);
-                case "HEAD" -> response = executor.sendHead(endpoint, duration);
-                case "DELETE" -> response = executor.sendDelete(endpoint, duration);
-                case "PUT" -> response = executor.sendPut(endpoint, jsonBody, duration);
-                case "POST" -> response = executor.sendPost(endpoint, jsonBody, duration);
-                default -> throw new RuntimeException("Unsupported method: " + method);
-            }
+
+        switch (method) {
+            case "GET" -> response = executor.sendGet(endpoint, duration);
+            case "HEAD" -> response = executor.sendHead(endpoint, duration);
+            case "DELETE" -> response = executor.sendDelete(endpoint, duration);
+            case "PUT" -> response = executor.sendPut(endpoint, jsonBody, duration);
+            case "POST" -> response = executor.sendPost(endpoint, jsonBody, duration);
+            default -> throw new RuntimeException("Unsupported method: " + method);
         }
 
-
-        System.out.println("Send " + method + " " + endpoint);
-        System.out.println(response);
-        System.out.println("-------------------------------------");
-
-
-        currentTestRepeats = 0;
-        currentTestTimeout = 0;
+        try {
+            setVariable("status", new NumberValue(response.statusCode()));
+            
+            Map<String, Value> headersMap = new HashMap<>();
+            response.headers().forEach((key, value) -> headersMap.put(key, new StringValue(value)));
+            setVariable("headers", new ObjectValue(headersMap));
+            
+            if (response.body() != null && !response.body().isEmpty()) {
+                try {
+                    String trimmedBody = response.body().trim();
+                    if (trimmedBody.startsWith("[") && trimmedBody.endsWith("]")) {
+                        List<Value> arrayValues = parseJsonArray(trimmedBody);
+                        setVariable("body", new ListValue(arrayValues));
+                    } else {
+                        Map<String, Value> bodyMap = parseJsonResponse(trimmedBody);
+                        setVariable("body", new ObjectValue(bodyMap));
+                    }
+                } catch (Exception e) {
+                    setVariable("body", new StringValue(response.body()));
+                }
+            } else {
+                setVariable("body", new StringValue(""));
+            }
+        } catch (Exception e) {
+            System.out.println("Error setting response variables: " + e.getMessage());
+            throw e;
+        }
 
         return null;
+    }
+
+    private Map<String, Value> parseJsonResponse(String jsonBody) {
+        Map<String, Value> result = new HashMap<>();
+        try {
+            String content = jsonBody.trim();
+            if (content.startsWith("{") && content.endsWith("}")) {
+                content = content.substring(1, content.length() - 1).trim();
+                if (!content.isEmpty()) {
+                    String[] pairs = content.split(",");
+                    for (String pair : pairs) {
+                        String[] keyValue = pair.split(":", 2);
+                        if (keyValue.length == 2) {
+                            String key = keyValue[0].trim();
+                            String value = keyValue[1].trim();
+                            
+                            if (key.startsWith("\"") && key.endsWith("\"")) {
+                                key = key.substring(1, key.length() - 1);
+                            }
+                            
+                            if (value.startsWith("\"") && value.endsWith("\"")) {
+                                result.put(key, new StringValue(value.substring(1, value.length() - 1)));
+                            } else if (value.equals("true") || value.equals("false")) {
+                                result.put(key, new BooleanValue(Boolean.parseBoolean(value)));
+                            } else if (value.matches("-?\\d+(\\.\\d+)?")) {
+                                result.put(key, new NumberValue(Double.parseDouble(value)));
+                            } else if (value.startsWith("{") && value.endsWith("}")) {
+                                result.put(key, new ObjectValue(parseJsonResponse(value)));
+                            } else if (value.startsWith("[") && value.endsWith("]")) {
+                                List<Value> arrayValues = parseJsonArray(value);
+                                result.put(key, new ListValue(arrayValues));
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Warning: Failed to parse JSON response: " + e.getMessage());
+        }
+        return result;
     }
 
     private String parseJsonObj(TesterParser.ObjContext ctx) {
@@ -163,6 +250,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         json.append("}");
         return json.toString();
     }
+
     private String parseValue(TesterParser.ValueContext ctx) {
         if (ctx.STRING() != null) return interpolateString(ctx.STRING().getText());
         if (ctx.NUMBER() != null) return ctx.NUMBER().getText();
@@ -172,6 +260,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         if (ctx.arr() != null) return parseArray(ctx.arr());
         return "\"<unsupported>\"";
     }
+
     private String parseArray(TesterParser.ArrContext ctx) {
         if (ctx.value().isEmpty()) return "[]";
         return ctx.value().stream()
@@ -179,7 +268,50 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
                 .collect(Collectors.joining(",", "[", "]"));
     }
 
+    private Value parseJsonValue(String value) {
+        if (value.startsWith("\"") && value.endsWith("\"")) {
+            return new StringValue(value.substring(1, value.length() - 1));
+        } else if (value.equals("true") || value.equals("false")) {
+            return new BooleanValue(Boolean.parseBoolean(value));
+        } else if (value.matches("-?\\d+(\\.\\d+)?")) {
+            return new NumberValue(Double.parseDouble(value));
+        } else if (value.startsWith("{") && value.endsWith("}")) {
+            return new ObjectValue(parseJsonResponse(value));
+        } else if (value.startsWith("[") && value.endsWith("]")) {
+            return new ListValue(parseJsonArray(value));
+        }
+        return new StringValue(value);
+    }
 
+    private List<Value> parseJsonArray(String arrayStr) {
+        List<Value> result = new ArrayList<>();
+        try {
+            String content = arrayStr.trim();
+            if (content.startsWith("[") && content.endsWith("]")) {
+                content = content.substring(1, content.length() - 1).trim();
+                if (!content.isEmpty()) {
+                    int depth = 0;
+                    StringBuilder current = new StringBuilder();
+                    for (char c : content.toCharArray()) {
+                        if (c == '{' || c == '[') depth++;
+                        if (c == '}' || c == ']') depth--;
+                        if (c == ',' && depth == 0) {
+                            result.add(parseJsonValue(current.toString().trim()));
+                            current = new StringBuilder();
+                        } else {
+                            current.append(c);
+                        }
+                    }
+                    if (current.length() > 0) {
+                        result.add(parseJsonValue(current.toString().trim()));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Warning: Failed to parse JSON array: " + e.getMessage());
+        }
+        return result;
+    }
 
     @Override
     public Value visitMethod(TesterParser.MethodContext ctx) {
@@ -348,8 +480,12 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
     }
 
     public void setVariable(String paramName, Value value) {
-        localVars.newSymbol(paramName);
-        localVars.setSymbol(paramName, value);
+        try {
+            localVars.setSymbol(paramName, value);
+        } catch (RuntimeException e) {
+            localVars.newSymbol(paramName);
+            localVars.setSymbol(paramName, value);
+        }
     }
 
     private String stripQuotes(String text) {
@@ -386,13 +522,22 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
             throw new RuntimeException("Undefined variable: " + rootName);
         }
 
+        if (root instanceof ObjectValue && ((ObjectValue) root).get("array") != null) {
+            root = ((ObjectValue) root).get("array");
+        }
+
         for (Value property : properties) {
             if (property instanceof StringValue) {
                 String propName = ((StringValue) property).value();
                 if (root instanceof ObjectValue) {
                     root = ((ObjectValue) root).get(propName);
                 } else if (root instanceof ListValue) {
-                    throw new RuntimeException("Illegal argument: " + root.type() + " does not support: " + property.type());
+                    try {
+                        int index = Integer.parseInt(propName);
+                        root = ((ListValue) root).get(index);
+                    } catch (NumberFormatException e) {
+                        throw new RuntimeException("Cannot use string as array index: " + propName);
+                    }
                 } else {
                     throw new RuntimeException("Undefined property: " + propName + " in " + root.type());
                 }
