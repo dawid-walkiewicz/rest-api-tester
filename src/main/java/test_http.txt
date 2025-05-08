@@ -13,6 +13,9 @@ test "Very Complicated GET" options { repeat: 1, timeout: 20000} {
     expect body[0]["id"] == 1
     expect body[1]["id"] == 2
     expect body[2]["id"] == 3
+    expect body[2]["id"] == 1
+    expect body[5]["id"] == 6
+
 }
 
 test "Complicated GET" options { repeat: 1, timeout: 20000} {
