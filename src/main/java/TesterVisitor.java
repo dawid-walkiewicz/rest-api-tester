@@ -1,5 +1,7 @@
 import grammar.TesterParser;
 import grammar.TesterParserBaseVisitor;
+import http.HttpRequestWrapper;
+import http.HttpResultData;
 import symbols.GlobalSymbols;
 import symbols.LocalSymbols;
 import types.*;
