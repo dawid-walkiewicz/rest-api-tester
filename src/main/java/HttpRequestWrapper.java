@@ -5,9 +5,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.HttpTimeoutException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class HttpRequestWrapper {
@@ -120,86 +118,6 @@ public class HttpRequestWrapper {
         Map<String, String> headerMap = new HashMap<>();
         response.headers().map().forEach((key, values) -> headerMap.put(key, String.join(", ", values)));
         return new HttpResultData(response.statusCode(), headerMap, response.body());
-    }
-
-
-    public HttpBenchmarkResult sendRequestBenchmark(
-            String url, int times, Duration timeout, String name) {
-
-        List<Long> timings = new ArrayList<>();
-        int success = 0;
-
-        for (int i = 0; i < times; i++) {
-            long iterationStart = System.nanoTime();
-            HttpResultData response;
-
-            switch (name) {
-                case "GET" -> {
-                    response = sendGet(url, timeout);
-                }
-                case "HEAD" -> {
-                    response = sendHead(url, timeout);
-                }
-
-                case "DELETE" -> {
-                    response = sendDelete(url, timeout);
-                }
-
-                default -> {
-                    throw new RuntimeException("Unsupported method: " + name);
-                }
-            }
-
-            long elapsed = (System.nanoTime() - iterationStart) / 1_000_000; // ms
-            timings.add(elapsed);
-
-            if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                success++;
-            }
-        }
-
-        return getHttpBenchmarkResult(timings, success);
-    }
-
-    public HttpBenchmarkResult sendRequestBenchmark(
-            String url, int times, Duration timeout, String jsonBody,
-            String name) {
-
-        List<Long> timings = new ArrayList<>();
-        int success = 0;
-
-        for (int i = 0; i < times; i++) {
-            long iterationStart = System.nanoTime();
-            HttpResultData response;
-            switch (name) {
-                case "POST" -> {
-                    response = sendPost(url, jsonBody, timeout);
-                }
-
-                case "PUT" -> {
-                    response = sendPut(url, jsonBody, timeout);
-                }
-                default -> {
-                    throw new RuntimeException("Unsupported method: " + name);
-                }
-            }
-            long elapsed = (System.nanoTime() - iterationStart) / 1_000_000; // ms
-            timings.add(elapsed);
-
-            if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                success++;
-            }
-        }
-
-        return getHttpBenchmarkResult(timings, success);
-    }
-
-    private HttpBenchmarkResult getHttpBenchmarkResult(List<Long> timings, int success) {
-        long min = timings.stream().min(Long::compareTo).orElse(0L);
-        long max = timings.stream().max(Long::compareTo).orElse(0L);
-        double avg = timings.stream().mapToLong(Long::longValue).average().orElse(0.0);
-
-        return new HttpBenchmarkResult(timings.size(), success, min, max, avg);
     }
 
 }

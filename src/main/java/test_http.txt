@@ -3,6 +3,7 @@ test "Simple HEAD" options { repeat: 2, timeout: 20000} {
     GET "https://restapitester.free.beeceptor.com"
 
     expect status == 200
+    expect headers["alt-svc"] == "h3=\":443\"; ma=2592000"
 }
 
 test "Very Complicated GET" options { repeat: 1, timeout: 20000} {

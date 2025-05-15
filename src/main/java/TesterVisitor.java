@@ -83,7 +83,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
             System.out.println("Max time: " + timings.stream().max(Long::compareTo).orElse(0L) + "ms");
             System.out.println("Average time: " + String.format("%.2f", timings.stream().mapToLong(Long::longValue).average().orElse(0.0)) + "ms");
         } else if (!timings.isEmpty()) {
-            System.out.println("Execution time: " + timings.get(0) + "ms");
+            System.out.println("Execution time: " + timings.getFirst() + "ms");
         }
         System.out.println("-".repeat(30));
 
@@ -302,7 +302,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
                             current.append(c);
                         }
                     }
-                    if (current.length() > 0) {
+                    if (!current.isEmpty()) {
                         result.add(parseJsonValue(current.toString().trim()));
                     }
                 }
@@ -489,7 +489,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
     }
 
     private String stripQuotes(String text) {
-        return text.substring(1, text.length() - 1);
+        return unescape(text.substring(1, text.length() - 1));
     }
 
     private String interpolateString(String input) {
@@ -514,6 +514,14 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
 
     private String processString(String input) {
         return interpolateString(stripQuotes(input));
+    }
+
+    private String unescape(String text) {
+        return text
+                .replace("\\\"", "\"")
+                .replace("\\\\", "\\")
+                .replace("\\n",  "\n")
+                .replace("\\t",  "\t");
     }
 
     private Value dig(String rootName, List<Value> properties) {
