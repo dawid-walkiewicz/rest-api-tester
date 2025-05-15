@@ -39,7 +39,13 @@ TRUE : 'true' ;
 FALSE : 'false' ;
 
 ID : [a-zA-Z_][a-zA-Z0-9_]* ;
-STRING : '"' (~["\r\n])* '"' ;
+
+STRING:
+    '"' ( '\\' .
+    | ~["\\\r\n]
+    )* '"'
+    ;
+
 NUMBER : [0-9]+ ('.' [0-9]+)? ;
 
 COMMENT : '//' ~[\r\n]* -> skip ;
