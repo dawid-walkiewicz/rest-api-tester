@@ -5,14 +5,13 @@ import java.nio.file.*;
  * Options:
  * <ul>
  *   <li><code>-f, --file &lt;file&gt;</code>: single test file</li>
- *   <li><code>-d, --dir &lt;dir&gt;</code>: test directory</li>
  *   <li><code>-h, --help</code>: show this help</li>
  * </ul>
  *
- * If no <code>-f</code> or <code>-d</code> is given, help is shown.
+ * If nothing is given, single test file is assumed.
  */
 public final class CliArgs {
-    public record Config(Path file, Path dir, boolean help) {
+    public record Config(Path file, boolean help) {
     }
 
     /**
@@ -31,37 +30,39 @@ public final class CliArgs {
     public static Config parse(String[] args) {
 
         Path file = null;
-        Path dir = null;
         boolean help = false;
 
         for (int i = 0; i < args.length; i++) {
-            switch (args[i]) {
+            String a = args[i];
+
+            switch (a) {
                 case "-f", "--file" -> {
-                    ensureNoPath(file, dir, args[i]);
-                    file = nextPath(args, ++i, args[i - 1]);
-                }
-                case "-d", "--dir" -> {
-                    ensureNoPath(file, dir, args[i]);
-                    dir = nextPath(args, ++i, args[i - 1]);
+                    ensureNoPath(file, a);
+                    file = nextPath(args, ++i, a);
                 }
                 case "-h", "--help" -> help = true;
-                default -> throw new ParseException("Unknown option: " + args[i]);
+                default -> {
+                    if (a.startsWith("-"))
+                        throw new ParseException("Unknown option: " + a);
+                    ensureNoPath(file, a);
+                    file = Path.of(a).toAbsolutePath();
+                }
             }
         }
 
-        if (!help && file == null && dir == null) {
-            help = true;
+        if (!help && file == null) {
+            throw new ParseException("Missing file.  See --help.");
         }
 
-        validatePath(file, true, "File");
-        validatePath(dir, false, "Directory");
+        if (file != null && !Files.isRegularFile(file))
+            throw new ParseException("File does not exist: " + file);
 
-        return new Config(file, dir, help);
+        return new Config(file, help);
     }
 
-    private static void ensureNoPath(Path file, Path dir, String opt) {
-        if (file != null || dir != null)
-            throw new ParseException(opt + " cannot be combined with another path");
+    private static void ensureNoPath(Path file, String opt) {
+        if (file != null)
+            throw new ParseException("File already specified");
     }
 
     private static Path nextPath(String[] args, int idx, String opt) {
@@ -70,21 +71,13 @@ public final class CliArgs {
         return Path.of(args[idx]).toAbsolutePath();
     }
 
-    private static void validatePath(Path p, boolean mustBeFile, String what)
-            throws ParseException {
-        if (p == null) return;
-        boolean ok = mustBeFile ? Files.isRegularFile(p) : Files.isDirectory(p);
-        if (!ok) throw new ParseException(what + " does not exist: " + p);
-    }
-
     /**
      * Returns the help text.
      */
     public static String helpText() {
         return """
-                Usage: tester (-f <file> | -d <directory>) [-h]
+                Usage: tester [-f] <file> [-h]
                   -f, --file <file>      single test file
-                  -d, --dir  <directory> test directory (recursively)
                   -h, --help             show this help
                 """;
     }

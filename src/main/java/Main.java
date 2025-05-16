@@ -17,28 +17,23 @@ public class Main {
 
             CharStream input;
 
-            if (cfg.file() != null) {
-                System.out.println("==> Running single file " + cfg.file());
 
-                try {
-                    input = CharStreams.fromPath(cfg.file());
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
+            System.out.println("==> Running single file " + cfg.file());
 
-                TesterLexer lexer = new TesterLexer(input);
-                CommonTokenStream tokens = new CommonTokenStream(lexer);
-                TesterParser parser = new TesterParser(tokens);
-
-                ParseTree tree = parser.program();
-
-                TesterVisitor visitor = new TesterVisitor();
-                visitor.visit(tree);
-            } else {
-                System.out.println("==> Running directory " + cfg.dir());
-                // TODO: runner.runDirectory(cfg.dir());
+            try {
+                input = CharStreams.fromPath(cfg.file());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
 
+            TesterLexer lexer = new TesterLexer(input);
+            CommonTokenStream tokens = new CommonTokenStream(lexer);
+            TesterParser parser = new TesterParser(tokens);
+
+            ParseTree tree = parser.program();
+
+            TesterVisitor visitor = new TesterVisitor();
+            visitor.visit(tree);
         } catch (CliArgs.ParseException e) {
             System.err.println("Error: " + e.getMessage());
             System.err.println(CliArgs.helpText());
