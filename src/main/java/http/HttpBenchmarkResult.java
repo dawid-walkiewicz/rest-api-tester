@@ -1,5 +1,4 @@
-import java.util.ArrayList;
-import java.util.List;
+package http;
 
 public record HttpBenchmarkResult(int totalRequests, int successCount, long minTime, long maxTime,
                                   double avgTimeMillis) implements HttpResult {
