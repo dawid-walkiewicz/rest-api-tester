@@ -1,5 +1,9 @@
 import grammar.TesterLexer;
 import grammar.TesterParser;
+import logger.ConsoleLogger;
+import logger.FileLogger;
+import logger.LogLevel;
+import logger.Logger;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.*;
 
@@ -7,6 +11,7 @@ import java.io.IOException;
 
 public class Main {
     public static void main(String[] args) {
+
         try {
             CliArgs.Config cfg = CliArgs.parse(args);
 
@@ -17,8 +22,8 @@ public class Main {
 
             CharStream input;
 
-
-            System.out.println("==> Running single file " + cfg.file());
+            Logger logger = new FileLogger(cfg.file());
+            logger.log("==> Running single file " + cfg.file());
 
             try {
                 input = CharStreams.fromPath(cfg.file());
@@ -32,8 +37,9 @@ public class Main {
 
             ParseTree tree = parser.program();
 
-            TesterVisitor visitor = new TesterVisitor();
+            TesterVisitor visitor = new TesterVisitor(logger);
             visitor.visit(tree);
+            logger.flush();
         } catch (CliArgs.ParseException e) {
             System.err.println("Error: " + e.getMessage());
             System.err.println(CliArgs.helpText());
