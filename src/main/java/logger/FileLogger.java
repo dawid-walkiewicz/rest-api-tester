@@ -26,13 +26,19 @@ public class FileLogger implements Logger {
     }
 
     @Override
+    public void summary(List<String> failedTests, int amountOfTests) {
+        LoggerUtils.createSummary(lines, failedTests, amountOfTests);
+    }
+
+    @Override
     public void flush() {
-        try (PrintWriter out = new PrintWriter(new FileWriter(getFileName()))) {
+        String fileName = getFileName();
+        try (PrintWriter out = new PrintWriter(new FileWriter(fileName))) {
             lines.forEach(out::println);
         } catch (IOException e) {
             System.err.println("FileLogger error: " + e.getMessage());
         }
-        System.out.println("Log generated in file: " + getFileName());
+        System.out.println("Log generated in file: " + fileName);
     }
 
     private String getFileName() {

@@ -1,9 +1,7 @@
-test "Simple HEAD" options { repeat: 2, timeout: 20000} {
-    HEAD "https://restapitester.free.beeceptor.com"
-    GET "https://restapitester.free.beeceptor.com"
+test "Simple HEAD" options { repeat: 1, timeout: 20000} {
+    GET "https://www.google.com/"
 
     expect status == 200
-    expect headers["alt-svc"] == "h3=\":443\"; ma=2592000"
 }
 
 test "Very Complicated GET" options { repeat: 1, timeout: 20000} {
