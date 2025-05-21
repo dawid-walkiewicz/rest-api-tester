@@ -17,9 +17,10 @@ import java.util.stream.Collectors;
 public class TesterVisitor extends TesterParserBaseVisitor<Value> {
     private GlobalSymbols<Value> globalVars;
     private LocalSymbols<Value> localVars;
-    private Logger logger;
+    private final Logger logger;
     private static final long DEFAULT_TIMEOUT_MS = 10_000;
 
+    private TestResult testResult;
     private String currentTestCaseName;
     private int currentTestRepeats;
     private int currentTestTimeout;
@@ -54,6 +55,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
             visit(ctx.optionsBlock());
         }
 
+        testResult = TestResult.PASSED;
         Value result = null;
         List<Long> timings = new ArrayList<>();
         int success = 0;
@@ -77,9 +79,15 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
                 timings.add(elapsed);
                 success++;
             } catch (Exception e) {
-                logger.log("Iteration " + (i + 1) + " failed: " + e.getMessage());
+                testResult = TestResult.FAILED;
+                logger.log(LogLevel.ERROR, "Iteration " + (i + 1) + " failed: " + e.getMessage());
             } finally {
                 popScope();
+            }
+
+            if (testResult != TestResult.PASSED) {
+                logger.log(LogLevel.ERROR, "TEST FAILED - SKIPPING TO NEXT TESTCASE");
+                break;
             }
         }
 
@@ -174,11 +182,11 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
 
         try {
             setVariable("status", new NumberValue(response.statusCode()));
-            
+
             Map<String, Value> headersMap = new HashMap<>();
             response.headers().forEach((key, value) -> headersMap.put(key, new StringValue(value)));
             setVariable("headers", new ObjectValue(headersMap));
-            
+
             if (response.body() != null && !response.body().isEmpty()) {
                 try {
                     String trimmedBody = response.body().trim();
@@ -216,11 +224,11 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
                         if (keyValue.length == 2) {
                             String key = keyValue[0].trim();
                             String value = keyValue[1].trim();
-                            
+
                             if (key.startsWith("\"") && key.endsWith("\"")) {
                                 key = key.substring(1, key.length() - 1);
                             }
-                            
+
                             if (value.startsWith("\"") && value.endsWith("\"")) {
                                 result.put(key, new StringValue(value.substring(1, value.length() - 1)));
                             } else if (value.equals("true") || value.equals("false")) {
@@ -238,7 +246,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
                 }
             }
         } catch (Exception e) {
-            logger.log("Warning: Failed to parse JSON response: " + e.getMessage());
+            logger.log(LogLevel.WARNING, "Failed to parse JSON response: " + e.getMessage());
         }
         return result;
     }
@@ -317,7 +325,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
                 }
             }
         } catch (Exception e) {
-            logger.log("Warning: Failed to parse JSON array: " + e.getMessage());
+            logger.log(LogLevel.WARNING, "Failed to parse JSON array: " + e.getMessage());
         }
         return result;
     }
@@ -339,9 +347,9 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         for (TesterParser.PairContext p : pairs) {
             Pair pair = (Pair) visit(p);
 
-             String key = pair.key();
-             Value val  = pair.value();
-             map.put(key, val);
+            String key = pair.key();
+            Value val = pair.value();
+            map.put(key, val);
         }
         return new ObjectValue(map);
     }
@@ -368,24 +376,18 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         if (ctx.STRING() != null) {
             String text = processString(ctx.STRING().getText());
             return new StringValue(text);
-        }
-        else if (ctx.NUMBER() != null) {
+        } else if (ctx.NUMBER() != null) {
             double num = Double.parseDouble(ctx.NUMBER().getText());
             return new NumberValue(num);
-        }
-        else if (ctx.TRUE() != null) {
+        } else if (ctx.TRUE() != null) {
             return new BooleanValue(true);
-        }
-        else if (ctx.FALSE() != null) {
+        } else if (ctx.FALSE() != null) {
             return new BooleanValue(false);
-        }
-        else if (ctx.obj() != null) {
+        } else if (ctx.obj() != null) {
             return visit(ctx.obj());
-        }
-        else if (ctx.arr() != null) {
+        } else if (ctx.arr() != null) {
             return visit(ctx.arr());
-        }
-        else if (ctx.path() != null) {
+        } else if (ctx.path() != null) {
             return visit(ctx.path());
         }
 
@@ -396,8 +398,10 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
     public Value visitAssertion(TesterParser.AssertionContext ctx) {
         Value result = visit(ctx.boolExpr());
 
-        //TODO: Better output
-        logger.log(ctx.boolExpr().getText() + " = " + result);
+        if (Objects.equals(result.toString(), "false")) {
+            testResult = TestResult.FAILED;
+            logger.log(LogLevel.ERROR, "Expected: " + ctx.boolExpr().getText() + " | Actual: " + result);
+        }
         return result;
     }
 
@@ -529,8 +533,8 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         return text
                 .replace("\\\"", "\"")
                 .replace("\\\\", "\\")
-                .replace("\\n",  "\n")
-                .replace("\\t",  "\t");
+                .replace("\\n", "\n")
+                .replace("\\t", "\t");
     }
 
     private Value dig(String rootName, List<Value> properties) {

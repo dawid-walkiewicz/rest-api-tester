@@ -11,7 +11,7 @@ import java.nio.file.*;
  * If nothing is given, single test file is assumed.
  */
 public final class CliArgs {
-    public record Config(Path file, boolean help) {
+    public record Config(Path file, boolean help, boolean toFile) {
     }
 
     /**
@@ -31,6 +31,7 @@ public final class CliArgs {
 
         Path file = null;
         boolean help = false;
+        boolean toFile = false;
 
         for (int i = 0; i < args.length; i++) {
             String a = args[i];
@@ -40,6 +41,7 @@ public final class CliArgs {
                     ensureNoPath(file, a);
                     file = nextPath(args, ++i, a);
                 }
+                case "-t", "--toFile" -> toFile = true;
                 case "-h", "--help" -> help = true;
                 default -> {
                     if (a.startsWith("-"))
@@ -57,7 +59,7 @@ public final class CliArgs {
         if (file != null && !Files.isRegularFile(file))
             throw new ParseException("File does not exist: " + file);
 
-        return new Config(file, help);
+        return new Config(file, help, toFile);
     }
 
     private static void ensureNoPath(Path file, String opt) {
@@ -78,6 +80,7 @@ public final class CliArgs {
         return """
                 Usage: tester [-f] <file> [-h]
                   -f, --file <file>      single test file
+                  -t, --toFile           create test results file
                   -h, --help             show this help
                 """;
     }

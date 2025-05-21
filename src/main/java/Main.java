@@ -2,10 +2,11 @@ import grammar.TesterLexer;
 import grammar.TesterParser;
 import logger.ConsoleLogger;
 import logger.FileLogger;
-import logger.LogLevel;
 import logger.Logger;
-import org.antlr.v4.runtime.*;
-import org.antlr.v4.runtime.tree.*;
+import org.antlr.v4.runtime.CharStream;
+import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.tree.ParseTree;
 
 import java.io.IOException;
 
@@ -13,6 +14,7 @@ public class Main {
     public static void main(String[] args) {
 
         try {
+            Logger logger;
             CliArgs.Config cfg = CliArgs.parse(args);
 
             if (cfg.help()) {
@@ -22,7 +24,12 @@ public class Main {
 
             CharStream input;
 
-            Logger logger = new FileLogger(cfg.file());
+            if (cfg.toFile()) {
+                logger = new FileLogger(cfg.file());
+            } else {
+                logger = new ConsoleLogger();
+            }
+
             logger.log("==> Running single file " + cfg.file());
 
             try {
