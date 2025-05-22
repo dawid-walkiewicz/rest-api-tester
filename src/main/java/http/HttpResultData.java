@@ -2,7 +2,7 @@ package http;
 
 import java.util.Map;
 
-public record HttpResultData(int statusCode, Map<String, String> headers, String body) implements HttpResult {
+public record HttpResultData(int statusCode, Map<String, String> headers, String body) {
 
     @Override
     public String toString() {
