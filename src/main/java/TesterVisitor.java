@@ -21,6 +21,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
     private static final long DEFAULT_TIMEOUT_MS = 10_000;
 
     private TestResult testResult;
+    private String operator = "";
     private String expected = "";
     private String actual = "";
     private String currentTestCaseName;
@@ -411,7 +412,11 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         if (!asBoolean(result)) {
             testResult = TestResult.FAILED;
             logger.log(LogLevel.ERROR, "Expect failed: " + ctx.boolExpr().getText());
-            logger.log( "Expected: " + expected + " | Actual: " + actual);
+            if (operator.equals("==")) {
+                logger.log("Expected: " + expected + " | Actual: " + actual);
+            } else {
+                logger.log("The equation is not true: " + expected + operator + actual);
+            }
             logger.log("-".repeat(60));
         } else {
             logger.log(LogLevel.INFO, ctx.boolExpr().getText() + " is true");
@@ -421,7 +426,8 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
 
     @Override
     public Value visitAssertionExpr(TesterParser.AssertionExprContext ctx) {
-        var operator = switch (ctx.comparison().getText()) {
+        operator = ctx.comparison().getText();
+        var comparator = switch (operator) {
             case "==" -> Operator.EQ;
             case "!=" -> Operator.NEQ;
             case "<" -> Operator.LT;
@@ -432,11 +438,11 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         };
 
         Value left = visit(ctx.lval);
-        actual = left.toString();
         Value right = visit(ctx.rval);
+        actual = left.toString();
         expected = right.toString();
 
-        return new BooleanValue(left.applyOperator(operator, right));
+        return new BooleanValue(left.applyOperator(comparator, right));
     }
 
     @Override

@@ -1,7 +1,13 @@
-test "Simple HEAD" options { repeat: 1, timeout: 20000} {
+test "Simple GET" options { repeat: 5, timeout: 20000} {
     GET "https://www.google.com/"
 
     expect status == 200
+}
+
+test "Simple failing GET" options { repeat: 5, timeout: 20000} {
+    GET "https://www.google.com/"
+
+    expect status != 200
 }
 
 test "Very Complicated GET" options { repeat: 1, timeout: 20000} {
