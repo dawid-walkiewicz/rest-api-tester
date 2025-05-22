@@ -2,6 +2,8 @@ import grammar.TesterParser;
 import grammar.TesterParserBaseVisitor;
 import http.HttpRequestWrapper;
 import http.HttpResultData;
+import logger.LogLevel;
+import logger.Logger;
 import symbols.GlobalSymbols;
 import symbols.LocalSymbols;
 import types.*;
@@ -15,19 +17,33 @@ import java.util.stream.Collectors;
 public class TesterVisitor extends TesterParserBaseVisitor<Value> {
     private GlobalSymbols<Value> globalVars;
     private LocalSymbols<Value> localVars;
+    private final Logger logger;
     private static final long DEFAULT_TIMEOUT_MS = 10_000;
 
+    private TestResult testResult;
+    private String operator = "";
+    private String expected = "";
+    private String actual = "";
     private String currentTestCaseName;
     private int currentTestRepeats;
     private int currentTestTimeout;
 
+    private final List<String> failedTests = new ArrayList<>();
+    private int amountOftests = 0;
+
     private final HttpRequestWrapper executor = new HttpRequestWrapper();
+
+    public TesterVisitor(Logger logger) {
+        this.logger = logger;
+    }
 
     @Override
     public Value visitProgram(TesterParser.ProgramContext ctx) {
         globalVars = new GlobalSymbols<>();
         localVars = new LocalSymbols<>();
-        return super.visitProgram(ctx);
+        super.visitProgram(ctx);
+        logger.summary(failedTests, amountOftests);
+        return null;
     }
 
     @Override
@@ -38,23 +54,28 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
 
     @Override
     public Value visitTestCase(TesterParser.TestCaseContext ctx) {
-        System.out.println("\n" + "=".repeat(50));
-        System.out.println("Running test: " + processString(ctx.STRING().getText()));
-        System.out.println("=".repeat(50));
+        String testName = processString(ctx.STRING().getText());
+        logger.log("\n" + "=".repeat(60));
+        logger.log("Running test: " + testName);
+        logger.log("=".repeat(60));
 
         currentTestCaseName = processString(ctx.STRING().getText());
         if (ctx.optionsBlock() != null) {
             visit(ctx.optionsBlock());
         }
 
+        testResult = TestResult.PASSED;
+        amountOftests++;
         Value result = null;
         List<Long> timings = new ArrayList<>();
-        int success = 0;
         int iterations = currentTestRepeats > 0 ? currentTestRepeats : 1;
+        boolean multipleIterations = iterations > 1;
 
         for (int i = 0; i < iterations; i++) {
-            System.out.println("\nIteration " + (i + 1) + "/" + iterations + ":");
-            System.out.println("-".repeat(20));
+            if (multipleIterations) {
+                logger.log("\nIteration " + (i + 1) + "/" + iterations + ":");
+                logger.log("-".repeat(60));
+            }
             try {
                 long iterationStart = System.nanoTime();
                 pushScope();
@@ -62,32 +83,37 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
                     try {
                         visit(statement);
                     } catch (Exception e) {
-                        System.out.println("Error in statement: " + e.getMessage());
+                        logger.log(LogLevel.ERROR, "In statement: " + e.getMessage());
                         throw e;
                     }
                 }
                 long elapsed = (System.nanoTime() - iterationStart) / 1_000_000; // ms
                 timings.add(elapsed);
-                success++;
             } catch (Exception e) {
-                System.out.println("Iteration " + (i + 1) + " failed: " + e.getMessage());
+                testResult = TestResult.FAILED;
+                logger.log(LogLevel.ERROR, "Iteration " + (i + 1) + " failed: " + e.getMessage());
             } finally {
                 popScope();
             }
+
+            if (testResult != TestResult.PASSED) {
+                logger.log(LogLevel.ERROR, "TEST FAILED - SKIPPING");
+                failedTests.add(testName);
+                break;
+            }
         }
 
-        System.out.println("\nTest results for " + currentTestCaseName + ":");
-        System.out.println("-".repeat(30));
-        System.out.println("Total iterations: " + timings.size());
-        System.out.println("Successful iterations: " + success);
-        if (iterations > 1) {
-            System.out.println("Min time: " + timings.stream().min(Long::compareTo).orElse(0L) + "ms");
-            System.out.println("Max time: " + timings.stream().max(Long::compareTo).orElse(0L) + "ms");
-            System.out.println("Average time: " + String.format("%.2f", timings.stream().mapToLong(Long::longValue).average().orElse(0.0)) + "ms");
+        logger.log("\nTEST RESULT: " + testResult);
+        logger.log("-".repeat(60));
+        if (multipleIterations) {
+            logger.log("Total iterations: " + timings.size());
+            logger.log("Min time: " + timings.stream().min(Long::compareTo).orElse(0L) + "ms");
+            logger.log("Max time: " + timings.stream().max(Long::compareTo).orElse(0L) + "ms");
+            logger.log("Average time: " + String.format("%.2f", timings.stream().mapToLong(Long::longValue).average().orElse(0.0)) + "ms");
         } else if (!timings.isEmpty()) {
-            System.out.println("Execution time: " + timings.getFirst() + "ms");
+            logger.log("Execution time: " + timings.getFirst() + "ms");
+            logger.log("-".repeat(60));
         }
-        System.out.println("-".repeat(30));
 
         return result;
     }
@@ -167,11 +193,11 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
 
         try {
             setVariable("status", new NumberValue(response.statusCode()));
-            
+
             Map<String, Value> headersMap = new HashMap<>();
             response.headers().forEach((key, value) -> headersMap.put(key, new StringValue(value)));
             setVariable("headers", new ObjectValue(headersMap));
-            
+
             if (response.body() != null && !response.body().isEmpty()) {
                 try {
                     String trimmedBody = response.body().trim();
@@ -189,7 +215,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
                 setVariable("body", new StringValue(""));
             }
         } catch (Exception e) {
-            System.out.println("Error setting response variables: " + e.getMessage());
+            logger.log(LogLevel.ERROR, "Error setting response variables: " + e.getMessage());
             throw e;
         }
 
@@ -209,11 +235,11 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
                         if (keyValue.length == 2) {
                             String key = keyValue[0].trim();
                             String value = keyValue[1].trim();
-                            
+
                             if (key.startsWith("\"") && key.endsWith("\"")) {
                                 key = key.substring(1, key.length() - 1);
                             }
-                            
+
                             if (value.startsWith("\"") && value.endsWith("\"")) {
                                 result.put(key, new StringValue(value.substring(1, value.length() - 1)));
                             } else if (value.equals("true") || value.equals("false")) {
@@ -231,7 +257,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
                 }
             }
         } catch (Exception e) {
-            System.out.println("Warning: Failed to parse JSON response: " + e.getMessage());
+            logger.log(LogLevel.WARNING, "Failed to parse JSON response: " + e.getMessage());
         }
         return result;
     }
@@ -310,7 +336,7 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
                 }
             }
         } catch (Exception e) {
-            System.out.println("Warning: Failed to parse JSON array: " + e.getMessage());
+            logger.log(LogLevel.WARNING, "Failed to parse JSON array: " + e.getMessage());
         }
         return result;
     }
@@ -332,9 +358,9 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         for (TesterParser.PairContext p : pairs) {
             Pair pair = (Pair) visit(p);
 
-             String key = pair.key();
-             Value val  = pair.value();
-             map.put(key, val);
+            String key = pair.key();
+            Value val = pair.value();
+            map.put(key, val);
         }
         return new ObjectValue(map);
     }
@@ -361,24 +387,18 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         if (ctx.STRING() != null) {
             String text = processString(ctx.STRING().getText());
             return new StringValue(text);
-        }
-        else if (ctx.NUMBER() != null) {
+        } else if (ctx.NUMBER() != null) {
             double num = Double.parseDouble(ctx.NUMBER().getText());
             return new NumberValue(num);
-        }
-        else if (ctx.TRUE() != null) {
+        } else if (ctx.TRUE() != null) {
             return new BooleanValue(true);
-        }
-        else if (ctx.FALSE() != null) {
+        } else if (ctx.FALSE() != null) {
             return new BooleanValue(false);
-        }
-        else if (ctx.obj() != null) {
+        } else if (ctx.obj() != null) {
             return visit(ctx.obj());
-        }
-        else if (ctx.arr() != null) {
+        } else if (ctx.arr() != null) {
             return visit(ctx.arr());
-        }
-        else if (ctx.path() != null) {
+        } else if (ctx.path() != null) {
             return visit(ctx.path());
         }
 
@@ -389,14 +409,25 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
     public Value visitAssertion(TesterParser.AssertionContext ctx) {
         Value result = visit(ctx.boolExpr());
 
-        //TODO: Better output
-        System.out.println(ctx.boolExpr().getText() + " = " + result);
+        if (!asBoolean(result)) {
+            testResult = TestResult.FAILED;
+            logger.log(LogLevel.ERROR, "Expect failed: " + ctx.boolExpr().getText());
+            if (operator.equals("==")) {
+                logger.log("Expected: " + expected + " | Actual: " + actual);
+            } else {
+                logger.log("The equation is not true: " + expected + operator + actual);
+            }
+            logger.log("-".repeat(60));
+        } else {
+            logger.log(LogLevel.INFO, ctx.boolExpr().getText() + " is true");
+        }
         return result;
     }
 
     @Override
     public Value visitAssertionExpr(TesterParser.AssertionExprContext ctx) {
-        var operator = switch (ctx.comparison().getText()) {
+        operator = ctx.comparison().getText();
+        var comparator = switch (operator) {
             case "==" -> Operator.EQ;
             case "!=" -> Operator.NEQ;
             case "<" -> Operator.LT;
@@ -408,8 +439,10 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
 
         Value left = visit(ctx.lval);
         Value right = visit(ctx.rval);
+        actual = left.toString();
+        expected = right.toString();
 
-        return new BooleanValue(left.applyOperator(operator, right));
+        return new BooleanValue(left.applyOperator(comparator, right));
     }
 
     @Override
@@ -522,8 +555,8 @@ public class TesterVisitor extends TesterParserBaseVisitor<Value> {
         return text
                 .replace("\\\"", "\"")
                 .replace("\\\\", "\\")
-                .replace("\\n",  "\n")
-                .replace("\\t",  "\t");
+                .replace("\\n", "\n")
+                .replace("\\t", "\t");
     }
 
     private Value dig(String rootName, List<Value> properties) {
