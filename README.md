@@ -2,7 +2,7 @@
 ___
 ## Instalacja
 
-Do kompilacji i uruchomienia aplikacji wymagana jest Java 23 oraz Maven 3.9.
+Do kompilacji i uruchomienia aplikacji wymagana jest Java 21 oraz Maven 3.x
 
 Tworzenie pliku wykonawczego .jar:
 ```
